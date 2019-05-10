@@ -33,7 +33,8 @@ sig.stars <- function(x) {
       ifelse(
         x < 0.01, "**", 
         ifelse(
-          x < 0.05, "*", "n.s.")
+          x < 0.05, "*", "n.s."
+        )
       )
     )
   )
