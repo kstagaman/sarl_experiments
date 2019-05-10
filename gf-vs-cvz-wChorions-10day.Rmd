@@ -1,0 +1,405 @@
+---
+title: "Zebrafish behavior: comparing germ-free vs conventionalized juveniles"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+wds <- c("~/Google Drive/OSU/OSU_Home_Sync", "~/Google Drive/OSU_Home_Sync")
+my.wd <- list.files(path = wds, pattern = "ARL Experiments", full.names = T)
+setwd(my.wd)
+source("~/Code/R_scripts/require_lot_of_packages.R")
+libs <- c("data.table", "magrittr", "ggplot2", "cowplot", "ggbeeswarm", "caTools") # , "dplyr", "plyr"
+require.lots.of.pkgs(libs)
+treat.code <- c("germ-free" = "GF", "conventionalized" = "CVZ", "conventional" = "CV")
+expt.log <- read.csv("SARL Experiment Log.csv") %>% as.data.table()
+expt.log[, Treatment := treat.code[as.character(Plate_description)]]
+setkey(expt.log, Plate_ID)
+plate.treat <- expt.log[, .(Plate_ID, Treatment)]
+
+dir.pattern1 <- "gf-vs-cvz-wChorions-10day-01and02"
+dir.pattern2 <- "gf-vs-cvz-wChorions-10day-03and04"
+dirs1 <- list.files(pattern = dir.pattern1)
+dirs2 <- list.files(pattern = dir.pattern2)
+```
+
+```{r hmat-plot}
+hmat.pattern <- "behavior_24h_FOR_GUI_HMAT_With_Removal"
+hmat.path1 <- file.path(dirs1, "GUI files", "RemovedAffected")
+hmat.path2 <- file.path(dirs2, "GUI files", "RemovedAffected")
+hmat.files1 <- list.files(path = hmat.path1, pattern = hmat.pattern, full.names = T)
+hmat.files2 <- list.files(path = hmat.path2, pattern = hmat.pattern, full.names = T)
+hmat.data1 <- do.call('rbindlist', list(l = lapply(hmat.files1, read.csv), fill = TRUE)) %>% as.data.table()
+hmat.data2 <- do.call('rbindlist', list(l = lapply(hmat.files2, read.csv), fill = TRUE)) %>% as.data.table()
+hmat.data1[, Week := "Week1"];hmat.data2[, Week := "Week2"]
+hmat.data <- rbindlist(list(hmat.data1, hmat.data2), fill = TRUE)
+hmat.data <- hmat.data[remove == 0]
+hmat.data <- hmat.data[plate.treat, on = "plate.id==Plate_ID"]
+idVars <- names(hmat.data)[!(grepl("^t", names(hmat.data)))]
+hmat.melt <- melt(hmat.data, id.vars = idVars)
+hmat.melt[, variable := as.numeric(gsub("t", "", variable))]
+hmat.melt[, plate.id := factor(plate.id)]
+
+hmat_color_scale <- scale_color_manual(
+  name = "Mean[µM]",
+  values = c("#000000", "#73FAB9"),
+  labels = c("GF", "CVZ")
+)
+hmat_fill_scale <- scale_fill_manual(
+  name = "Mean[µM]",
+  values = c("#000000", "#73FAB9"),
+  labels = c("GF", "CVZ")
+)
+
+ggplot(hmat.melt, aes(x = variable, y = value)) +
+  geom_vline(xintercept = c(30, 40), color = "red", size = 0.3) +
+  stat_summary(
+    fun.data = "mean_cl_boot", 
+    geom = "ribbon", 
+    aes(group = Treatment, fill = Treatment), 
+    alpha = 0.2
+  ) + 
+  stat_summary(fun.y = mean, geom = "line", aes(group = Treatment, color = Treatment)) +
+  coord_cartesian(xlim = c(21, 48)) +
+  hmat_color_scale +
+  hmat_fill_scale + 
+  facet_wrap(~ Week) + 
+  labs(x = "Time", y = "Movement", title = "HMAT Results")
+ggsave(file = "hmat_2weeks_plot.pdf")
+```
+
+```{r hmat-auc-stats}
+window.data <- hmat.melt[variable > 29 & variable < 41]
+aucs <- window.data[
+  ,
+  .(
+    AUC = DescTools::AUC(x = variable, y = value)
+  ),
+  by = c("well", "plate.id", "Treatment", "Week")
+  ]
+
+# wilcox.res <- wilcox.test(AUC ~ Treatment + Week, data = aucs)
+# wilcox.res$statistic
+# wilcox.res$p.value
+# wilcox.text <- paste0(
+#   "Wilcoxon rank sum test:\n", 
+#   "W = ", wilcox.res$statistic, 
+#   "\np = ", round(wilcox.res$p.value,3)
+#   )
+lm.auc <- lm(AUC ~ Treatment + Week, data = aucs)
+(aov.auc <- car::Anova(lm.auc, type = 2))
+summary(lm.auc)
+anova(lm.auc)
+# ggplot(aucs, aes(x = AUC)) +
+#   geom_histogram(aes(fill = Treatment), binwidth = 5, position = "dodge") +
+#   hmat_fill_scale
+
+ggplot(aucs, aes(x = Week, y = AUC, color = Treatment)) +
+  geom_quasirandom(dodge.width = 1) + 
+  stat_summary(
+    aes(group = interaction(Week, Treatment)),
+    fun.data = "mean_cl_boot", 
+    color = "red", 
+    geom = "errorbar",
+    position = position_dodge(width = 1), 
+    width = 0.4
+  ) + 
+  hmat_color_scale + 
+  labs(title = "Individual HMAT AUCs", subtitle = "by Treamtent and Week")
+ggsave(file = "hmat_aucs_plot.pdf")
+
+ggplot(aucs, aes(x = Week, y = log(AUC + 1), color = Treatment)) +
+  geom_quasirandom(dodge.width = 1) + 
+  stat_summary(
+    aes(group = interaction(Week, Treatment)),
+    fun.data = "mean_cl_boot", 
+    color = "red", 
+    geom = "errorbar",
+    position = position_dodge(width = 1), 
+    width = 0.4
+  ) + 
+  hmat_color_scale + 
+  labs(title = "Individual HMAT AUCs, Log Transformed", subtitle = "by Treamtent and Week")
+ggsave(file = "hmat_log(aucs+1)_plot.pdf")
+
+ggplot(aucs, aes(x = Treatment, y = log(AUC + 1))) +
+  geom_quasirandom(aes(color = plate.id), dodge.width = 1, show.legend = F) + 
+  stat_summary(
+    aes(group = interaction(Treatment, plate.id)),
+    fun.data = "mean_cl_boot", 
+    color = "red", 
+    geom = "errorbar",
+    position = position_dodge(width = 1), 
+    width = 0.4
+  ) + 
+  facet_wrap(~ Week) + 
+  labs(title = "Individual HMAT AUCs, Log Transformed", subtitle = "by Treamtent, Week, and Plate")
+ggsave(file = "hmat_log(aucs+1)_plot_wPlates.pdf")
+
+ggplot(aucs, aes(x = Treatment, y = AUC)) +
+  geom_quasirandom(aes(color = plate.id), dodge.width = 1, show.legend = F) + 
+  stat_summary(
+    aes(group = interaction(Treatment, plate.id)),
+    fun.data = "mean_cl_boot", 
+    color = "red", 
+    geom = "errorbar",
+    position = position_dodge(width = 1), 
+    width = 0.4
+  ) + 
+  facet_wrap(~ Week) + 
+  labs(title = "Individual HMAT AUCs", subtitle = "by Treamtent, Week, and Plate")
+ggsave(file = "hmat_aucs_plot_wPlates.pdf")
+
+```
+
+```{r lpr-plots}
+lpr.pattern <- "behavior_5d_FOR_GUI_LPR"
+lpr.path1 <- file.path(dirs1, "GUI files", "RemovedAffected")
+lpr.files1 <- list.files(path = lpr.path1, pattern = lpr.pattern, full.names = T)
+lpr.data1 <- do.call("rbind", lapply(lpr.files1, read.csv)) %>% as.data.table()
+
+lpr.path2 <- file.path(dirs2, "GUI files", "RemovedAffected")
+lpr.files2 <- list.files(path = lpr.path2, pattern = lpr.pattern, full.names = T)
+lpr.data2 <- do.call("rbind", lapply(lpr.files2, read.csv)) %>% as.data.table()
+
+lpr.data.list0 <- list(lpr.data1, lpr.data2)
+lpr.data.list0[[1]]$Week <- "Week1"
+lpr.data.list0[[2]]$Week <- "Week2"
+lpr.raw.data <- do.call("rbind", lpr.data.list0)
+lpr.raw.data <- lpr.raw.data[complete.cases(lpr.raw.data)]
+lpr.raw.data <- lpr.raw.data[plate.treat, on = "plate==Plate_ID"]
+nSubjects.lpr <- lpr.raw.data[, .(N = .N), by = c("Week", "Treatment", "plate")]
+write.table(nSubjects.lpr, file = "lpr_nSubjects_tbl.csv", sep = ",", quote = F, row.names = F)
+
+lpr.data.list <- list(lpr.data1, lpr.data2)
+lpr.results <- NULL
+week <- 1
+for (week in c(1,2)) {
+  behav5d <- lpr.data.list[[week]]
+  behav5d$conc <- as.numeric(as.character(behav5d$conc))
+  ### lets analyze only the 2nd epoch
+  l1 <- paste0("t", seq(61,89))
+  d1 <- paste0("t", seq(90,119))
+  lstart <- 61
+  dend <- 119
+  ep2 <- paste0("t", seq(lstart, dend))
+  
+  ### use guozhu's code
+  upper <- 0.95
+  lower <- 0.05
+  # test5d <- behav5d[which(behav5d$chemical.id == "C09375"),]
+  DE <- function(x) log(quantile(x, upper, na.rm = TRUE) - quantile(x, lower, na.rm = TRUE) + 1)
+  hcal <- melt(behav5d, id = c("chemical.id", "well", "conc", "plate"))
+  hcal <- hcal[, .(h = DE(value)), by = c("chemical.id", "plate", "variable")]
+  # hcal <- hcal %>%
+  #   group_by(chemical.id, plate, variable) %>%
+  #   summarise(h = DE(value))
+  hcal <- hcal[plate.treat, on = "plate==Plate_ID"]
+  hcal$Week <- paste0("Week", week)
+  hcal2 <- hcal[variable %in% ep2]
+  hcal2 <- hcal2[, .(ave.h = mean(h)), by = c("Treatment", "Week", "plate", "variable")]
+  hcal2$time <- gsub("[a-zA-Z]", "\\2", hcal2$variable)
+  hcal2$time <- as.numeric(as.character(hcal2$time))
+  hcal3 <- hcal2
+  hcal3[which(hcal3$time %in% seq(61, 65)), "sec"] <- 0
+  hcal3[which(hcal3$time %in% seq(66, 70)), "sec"] <- 30
+  hcal3[which(hcal3$time %in% seq(71, 75)), "sec"] <- 60
+  hcal3[which(hcal3$time %in% seq(76, 80)), "sec"] <- 90
+  hcal3[which(hcal3$time %in% seq(81, 85)), "sec"] <- 120
+  hcal3[which(hcal3$time %in% seq(86, 90)), "sec"] <- 150
+  hcal3[which(hcal3$time %in% seq(91, 95)), "sec"] <- 180
+  hcal3[which(hcal3$time %in% seq(96, 100)), "sec"] <- 210
+  hcal3[which(hcal3$time %in% seq(101, 105)), "sec"] <- 240
+  hcal3[which(hcal3$time %in% seq(106, 110)), "sec"] <- 270
+  hcal3[which(hcal3$time %in% seq(111, 115)), "sec"] <- 300
+  hcal3[which(hcal3$time %in% seq(116, 119)), "sec"] <- 330
+  hcal4 <- hcal3[, .(h.sec = sum(ave.h)), by = c("Treatment", "Week", "plate", "sec")]
+  lpr.results <- rbind(lpr.results, hcal4)
+}
+ggplot(lpr.results, aes(sec, h.sec, colour = Treatment)) +
+  geom_path(lwd = 1.2, aes(group = plate)) +
+  geom_segment(x = 0, y = 0.5, xend = 150, yend = 0.5, color = "yellow") + 
+  scale_color_manual(values = c("#000000", "#73FAB9")) +
+  facet_wrap(~ Week) + 
+  labs(x = "Time", y = "Differential Entropy")
+ggsave("lpr_de_2weeks_plot.pdf")
+```
+
+```{r lpr-stats}
+l1 <- paste0("t", seq(61,89))
+d1 <- paste0("t", seq(90,119))
+lstart <- 61
+lend <- 89
+dstart <- 90
+dend <- 119
+ep2 <- paste0("t", seq(lstart,dend))
+AUC.dt <- data.table()
+headers <- c(
+  "Treatment",
+  #"Week",
+  "Light_Cycle_Pval",
+  "Dark_Cycle_Pval",
+  "Light_Cycle_AUC",
+  "Dark_Cycle_AUC",
+  #"Light_AUC_Ratio",
+  # "Dark_AUC_Ratio",
+  "Light_AUC_RelativeRatio",
+  "Dark_AUC_RelativeRatio"
+)
+phases <- c("light", "dark")
+hdata <- hcal
+# fails <- temp_qc_fail[which(temp_qc_fail$Chemical.ID == chi),'conc']
+treatments <- levels(hdata$Treatment)
+some1 <- matrix(
+  data = 0,
+  nrow = length(treatments), 
+  ncol = length(headers), 
+  dimnames = list(1:length(treatments), headers)
+  ) %>% as.data.table()
+some1$Treatment <- treatments
+setkey(some1, Treatment)
+ctrl.treat <- "CVZ"
+ctrl <- hdata[Treatment == ctrl.treat]
+# plates <- unique(hdata1$plate)
+
+# ##setup things
+# some1[,1] <- chi
+# some1[paste(c),2] <- paste(c)
+# treat <- "GF"
+for (treat in treatments) {
+  hdata1 <- hdata[Treatment == treat]
+  ##dark AUC
+  #Kolmogorov-Smirnov Goodness-of-Fit
+  ksdark <- suppressWarnings(
+    ks.test(
+      ctrl[variable %in% d1]$h,
+      hdata1[variable %in% d1]$h, 
+      alternative = "two.sided"
+    )
+  )
+  some1[treat, "Dark_Cycle_Pval"] <- round(ksdark$p.value, 3)
+  
+  ##light AUC
+  #Kolmogorov-Smirnov Goodness-of-Fit
+  kslight <- suppressWarnings(
+    ks.test(
+      ctrl[variable %in% l1]$h,
+      hdata1[variable %in% l1]$h, 
+      alternative = "two.sided"
+    )
+  )
+  
+  some1[treat, "Light_Cycle_Pval"] <- round(kslight$p.value, 3)
+  # phase <- phases[1]
+  for (phase in phases) {
+    if (phase == "light") {
+      h1 <- paste0("t", lstart)
+      hend <- paste0("t", lend)
+      between <- paste0("t", seq(lstart + 1, lend - 1))
+    } else {
+      h1 <- paste0("t", dstart)
+      hend <- paste0("t", dend)
+      between <- paste0("t", seq(dstart + 1, dend - 1))
+    }
+    hdat <- hdata1[variable %in% c(h1,hend,between)]
+    
+    
+    # for(pl in plates){
+    #   hdat1 <- hdat %>% filter(plate == pl)
+    
+    hdat[, variable := as.numeric(gsub("[a-zA-Z]", "\\2", as.character(variable)))]
+    auc <- caTools::trapz(hdat$variable, hdat$h)
+    
+    hcalc <- data.frame(treat, auc, phase)
+    AUC.dt <- rbind(AUC.dt, hcalc)
+    if (phase == "dark") {
+      some1[treat, "Dark_Cycle_AUC"] <- round(mean(AUC.dt$auc),3) 
+    }
+    if (phase == "light") {
+      some1[treat, "Light_Cycle_AUC"] <- round(mean(AUC.dt$auc),3)    
+    }
+    # } ##plates   
+  }##light phases
+}
+
+AUC.ch <- AUC.dt[treat == treat,]
+c.c <- unique(AUC.ch$c)
+
+# AUC.ch1 <- AUC.ch %>% filter(c == co)
+AUC.ch1.wide <- dcast(AUC.dt, treat ~ phase, value.var = "auc")
+setkey(AUC.ch1.wide, treat)
+some1[as.character(AUC.ch1.wide$treat), c("Light_AUC_RelativeRatio", "Dark_AUC_RelativeRatio")] <- AUC.ch1.wide[
+  , 
+  .(
+    LRratio = (light - AUC.ch1.wide[ctrl.treat, light])/AUC.ch1.wide[ctrl.treat, light],
+    DRratio = (dark - AUC.ch1.wide[ctrl.treat, dark])/AUC.ch1.wide[ctrl.treat, dark]
+    )
+  ]
+some1[ctrl.treat, "Treatment"] <- paste(some1[ctrl.treat, "Treatment"], "(Ctrl)")
+kable(some1)
+```
+
+```{r death-plots}
+death.pattern1 <- "deathLog.csv"
+death.files1 <- list.files(pattern = death.pattern1)
+death.data1 <- do.call("rbind", lapply(death.files1, read.csv)) %>% as.data.table()
+death.data1[, `:=`(GFD_date = as.Date(GFD_date), Log_date = as.Date(Log_date))]
+death.data1 <- death.data1[plate.treat, on = "Plate_id==Plate_ID"]
+death.data1[, Log_time := difftime(Log_date, GFD_date)]
+
+death.pattern2 <- "morphology_FOR_GUI_"
+death.path2 <- file.path(dirs, "GUI files")
+death.files2 <- list.files(path = death.path2, pattern = death.pattern2, full.names = T)
+death.data2 <- do.call("rbind", lapply(death.files2, read.csv)) %>% as.data.table()
+death.data2[, date := as.Date(as.character(date), format = "%Y%m%d")]
+death.data2 <- death.data2[plate.treat, on = "Plate_id==Plate_ID"]
+death.data2.1day <- death.data2[
+  plate %in% unique(death.data1$Plate_id) & MO24 == 1, 
+  .(Plate_id = plate, 
+    GFD_date = date, 
+    Log_date = date + 1, 
+    Dead_wells = well,
+    Treatment)
+  ]
+death.data2.5day <- death.data2[
+  plate %in% unique(death.data1$Plate_id) & MORT == 1, 
+  .(Plate_id = plate, 
+    GFD_date = date, 
+    Log_date = date + 5, 
+    Dead_wells = well,
+    Treatment)
+  ]
+death.data2[plate == 18042 & MORT == 1]
+death.data2.1day[, Log_time := difftime(Log_date, GFD_date)]
+death.data2.5day[, Log_time := difftime(Log_date, GFD_date)]
+death.data.all <- rbind(death.data1[, !"Still_in_chorion"], death.data2.1day, death.data2.5day)
+death.data.all <- death.data.all[
+  , 
+  .(N_alive = 96 - length(!is.na(Dead_wells))), 
+  keyby = c("Plate_id", "Log_time", "Treatment")
+  ]
+
+
+death.data.all.p <- ggplot(death.data.all, aes(x = Log_time, y = N_alive)) +
+  geom_line(aes(group = as.character(Plate_id), color = as.character(Plate_id)), show.legend = F) + 
+  scale_x_continuous(breaks = c(1:max(death.data.all$Log_time))) + 
+  scale_y_continuous(breaks = c(min(death.data.all$N_alive):max(death.data.all$N_alive))) +
+  facet_wrap(~ Treatment, nrow = 1) +
+  labs(title = "Week2 Deaths Data", x = "DPF", y = "Living Larvae")
+ggsave(death.data.all.p, file = "death_data_all.pdf")
+
+death.data.no5 <- rbind(death.data1[, !"Still_in_chorion"], death.data2.1day)
+death.data.no5 <- death.data.no5[
+  , 
+  .(N_alive = 96 - length(!is.na(Dead_wells))), 
+  keyby = c("Plate_id", "Log_time", "Treatment")
+  ]
+
+
+death.data.no5.p <- ggplot(death.data.no5, aes(x = Log_time, y = N_alive)) +
+  geom_line(aes(group = as.character(Plate_id), color = as.character(Plate_id)), show.legend = F) + 
+  scale_x_continuous(breaks = c(1:max(death.data.no5$Log_time))) + 
+  scale_y_continuous(breaks = c(min(death.data.no5$N_alive):max(death.data.no5$N_alive))) +
+  facet_wrap(~ Treatment, nrow = 1) +
+  labs(title = "Week2 Deaths Data (no 5 DPF)", x = "DPF", y = "Living Larvae")
+ggsave(death.data.no5.p, file = "death_data_no5.pdf")
+```

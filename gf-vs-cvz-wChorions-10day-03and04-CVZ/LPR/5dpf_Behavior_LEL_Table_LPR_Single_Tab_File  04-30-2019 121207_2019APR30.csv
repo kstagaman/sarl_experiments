@@ -1,0 +1,3 @@
+"chemical.id","chemical.name","total.no.conc","no.conc.used.for.analysis","no.conc.w.sig.hits","LEL.dark","LEL.light","LPR.hit"
+"3530","Non Germ Free",2,2,0,0,0,NA
+"3530","Non Germ Free",2,2,1,1,0,"YES"

@@ -1,0 +1,3 @@
+"Chemical","conc","Interval","N","AUC","RelativeRatio","P value","Activity"
+"Germ Free",1,"Dark",271,61.133,-0.017,"0",NA
+"Germ Free",1,"Light",271,50.7,148.799,"0","HYPER"
