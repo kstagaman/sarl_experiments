@@ -1,0 +1,3 @@
+"chemical.id","chemical.name","conc","units","count","org_ss","perc","ss_more_70perc","AUC","PercDiff","AUC.Pval","significance p<0.01","significance p<0.01 and 50% cutoff","activity","Comments"
+"3529","Germ Free",0,"",23,24,0.96,TRUE,8.451,0,1,NA,NA,NA,NA
+"3529","Germ Free",1,"uM",159,167,0.95,TRUE,90.828,974.723,0,"YES","YES","HYPER",NA
