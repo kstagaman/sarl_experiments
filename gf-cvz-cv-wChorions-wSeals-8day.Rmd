@@ -1,54 +1,61 @@
 ---
-title: "Zebrafish behavior: comparing germ-free vs conventionalized vs conventional juveniles"
+title: "Zebrafish behavior"
 output: html_document
 ---
+## Comparing Germ-free, Conventionalized, and Conventional Zebrafish in Sealed 96-well Plates
 
 ```{r setup, include=FALSE}
 wds <- c("~/Google Drive/OSU/OSU_Home_Sync", "~/Google Drive/OSU_Home_Sync")
 my.wd <- list.files(path = wds, pattern = "SARL Experiments", full.names = T)
 setwd(my.wd)
+
 source("~/Code/R_scripts/require_lot_of_packages.R")
-libs <- c("data.table", "magrittr", "ggplot2", "cowplot", "ggbeeswarm", "caTools") # , "dplyr", "plyr"
+libs <- c("data.table", "magrittr", "ggplot2", "cowplot", "ggbeeswarm", "caTools", "FSA", "ggsignif")
 require.lots.of.pkgs(libs)
+source("~/Code/R_scripts/mgsub.R")
+
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
+
 treat.code <- c("germ-free" = "GF", "conventionalized" = "CVZ", "conventional" = "CV")
 expt.log <- read.csv("SARL Experiment Log.csv") %>% as.data.table()
 expt.log[, Treatment := treat.code[as.character(Plate_description)]]
 setkey(expt.log, Plate_ID)
 plate.treat <- expt.log[, .(Plate_ID, Treatment)]
 
-dir.pattern1 <- "gf-cvz-cv-wChorions-wSeals-8day-01"
-dir.pattern2 <- "gf-vs-cvz-wChorions-10day-03and04"
-dirs1 <- list.files(pattern = dir.pattern1)
-dirs2 <- list.files(pattern = dir.pattern2)
+dir.pattern <- "gf-cvz-cv-wChorions-wSeals-8day-01"
+dirs <- list.files(pattern = dir.pattern)
+
+sig.stars <- function(x) {
+  ifelse(
+    x < 0.0001, "***", 
+    ifelse(
+      x < 0.001, "**", 
+      ifelse(
+        x < 0.01, "**", 
+        ifelse(
+          x < 0.05, "*", "n.s.")
+      )
+    )
+  )
+}
+sig.vals <- function(x, a = 3) {
+  paste("p =", round(x, a))
+}
+
 ```
 
-```{r hmat-plot}
+```{r hmat-all-movement-plot, fig.cap="Red lines indicate the window of movement we will analyze statistically"}
 hmat.pattern <- "behavior_24h_FOR_GUI_HMAT_With_Removal"
-hmat.path1 <- file.path(dirs1, "GUI files", "RemovedAffected")
-hmat.path2 <- file.path(dirs2, "GUI files", "RemovedAffected")
-hmat.files1 <- list.files(path = hmat.path1, pattern = hmat.pattern, full.names = T)
-hmat.files2 <- list.files(path = hmat.path2, pattern = hmat.pattern, full.names = T)
-hmat.data1 <- do.call('rbindlist', list(l = lapply(hmat.files1, read.csv), fill = TRUE)) %>% as.data.table()
-hmat.data2 <- do.call('rbindlist', list(l = lapply(hmat.files2, read.csv), fill = TRUE)) %>% as.data.table()
-hmat.data1[, Week := "Week1"];hmat.data2[, Week := "Week2"]
-hmat.data <- rbindlist(list(hmat.data1, hmat.data2), fill = TRUE)
+hmat.path <- file.path(dirs, "GUI files", "RemovedAffected")
+hmat.files <- list.files(path = hmat.path, pattern = hmat.pattern, full.names = T)
+hmat.data <- do.call('rbindlist', list(l = lapply(hmat.files, read.csv), fill = TRUE)) %>% as.data.table()
 hmat.data <- hmat.data[remove == 0]
-hmat.data <- hmat.data[plate.treat, on = "plate.id==Plate_ID"]
+hmat.data <- hmat.data[plate.treat, on = "plate.id==Plate_ID", nomatch = 0]
 idVars <- names(hmat.data)[!(grepl("^t", names(hmat.data)))]
 hmat.melt <- melt(hmat.data, id.vars = idVars)
 hmat.melt[, variable := as.numeric(gsub("t", "", variable))]
 hmat.melt[, plate.id := factor(plate.id)]
-
-hmat_color_scale <- scale_color_manual(
-  name = "Mean[µM]",
-  values = c("#000000", "#73FAB9"),
-  labels = c("GF", "CVZ")
-)
-hmat_fill_scale <- scale_fill_manual(
-  name = "Mean[µM]",
-  values = c("#000000", "#73FAB9"),
-  labels = c("GF", "CVZ")
-)
+hmat.melt[, Treatment := factor(Treatment, levels = c("GF", "CVZ", "CV"))]
 
 ggplot(hmat.melt, aes(x = variable, y = value)) +
   geom_vline(xintercept = c(30, 40), color = "red", size = 0.3) +
@@ -60,100 +67,100 @@ ggplot(hmat.melt, aes(x = variable, y = value)) +
   ) + 
   stat_summary(fun.y = mean, geom = "line", aes(group = Treatment, color = Treatment)) +
   coord_cartesian(xlim = c(21, 48)) +
-  hmat_color_scale +
-  hmat_fill_scale + 
-  facet_wrap(~ Week) + 
-  labs(x = "Time", y = "Movement", title = "HMAT Results")
-ggsave(file = "hmat_2weeks_plot.pdf")
+  scale_color_brewer(name = "Treatment", palette = "Dark2") +
+  scale_fill_brewer(name = "Treatment", palette = "Dark2") + 
+  labs(x = "Time", y = "Movement [µM]", title = "HMAT Results") + 
+  theme(legend.position = "top")
 ```
 
-```{r hmat-auc-stats}
+```{r hmat-auc-stats, fig.cap="Post-hoc pairwise comparisons conducted with Dunn's Kruskal-Wallis Multiple Comparisons Test with False Discovery Rate"}
 window.data <- hmat.melt[variable > 29 & variable < 41]
 aucs <- window.data[
   ,
   .(
-    AUC = DescTools::AUC(x = variable, y = value)
+    AUC = caTools::trapz(x = variable, y = value)
   ),
-  by = c("well", "plate.id", "Treatment", "Week")
+  by = c("well", "plate.id", "Treatment")
   ]
+kw <- kruskal.test(AUC ~ Treatment, data = aucs)
+# print(kw)
 
-# wilcox.res <- wilcox.test(AUC ~ Treatment + Week, data = aucs)
-# wilcox.res$statistic
-# wilcox.res$p.value
-# wilcox.text <- paste0(
-#   "Wilcoxon rank sum test:\n", 
-#   "W = ", wilcox.res$statistic, 
-#   "\np = ", round(wilcox.res$p.value,3)
-#   )
-lm.auc <- lm(AUC ~ Treatment + Week, data = aucs)
-(aov.auc <- car::Anova(lm.auc, type = 2))
-summary(lm.auc)
-anova(lm.auc)
-# ggplot(aucs, aes(x = AUC)) +
-#   geom_histogram(aes(fill = Treatment), binwidth = 5, position = "dodge") +
-#   hmat_fill_scale
+if (kw$p.value < 0.05) {
+  dunn <- FSA::dunnTest(AUC ~ Treatment, data = aucs, method = "bh") 
+  # print(dunn)
+  dunn.dt <- as.data.table(dunn$res)
+  dunn.dt[, c("Start", "End") := tstrsplit(Comparison, " - ", fixed = TRUE)]
+  dunn.dt[, Label := sig.vals(P.adj)]
+  dunn.dt[, Y := c(265, 295, 230)]
+}
+kw.lab <- paste0(names(kw$statistic), " = ", round(kw$statistic, 3), ", df = ", kw$parameter, ", p-value = ", round(kw$p.value, 3))
 
-ggplot(aucs, aes(x = Week, y = AUC, color = Treatment)) +
-  geom_quasirandom(dodge.width = 1) + 
+ggplot(aucs) +
+  geom_quasirandom(aes(x = Treatment, y = AUC, color = Treatment), dodge.width = 1) + 
   stat_summary(
-    aes(group = interaction(Week, Treatment)),
+    aes(x = Treatment, y = AUC),
     fun.data = "mean_cl_boot", 
-    color = "red", 
+    color = "black", 
     geom = "errorbar",
     position = position_dodge(width = 1), 
     width = 0.4
   ) + 
-  hmat_color_scale + 
-  labs(title = "Individual HMAT AUCs", subtitle = "by Treamtent and Week")
-ggsave(file = "hmat_aucs_plot.pdf")
-
-ggplot(aucs, aes(x = Week, y = log(AUC + 1), color = Treatment)) +
-  geom_quasirandom(dodge.width = 1) + 
-  stat_summary(
-    aes(group = interaction(Week, Treatment)),
-    fun.data = "mean_cl_boot", 
-    color = "red", 
-    geom = "errorbar",
-    position = position_dodge(width = 1), 
-    width = 0.4
+  scale_color_brewer(palette = "Dark2") + 
+  geom_signif(
+    data = dunn.dt,
+    aes(xmin = Start, xmax = End, annotations = Label, y_position = Y),
+    vjust = -0.2, textsize = 3,
+    manual = TRUE
   ) + 
-  hmat_color_scale + 
-  labs(title = "Individual HMAT AUCs, Log Transformed", subtitle = "by Treamtent and Week")
-ggsave(file = "hmat_log(aucs+1)_plot.pdf")
+  annotate("text", x = 0.2, y = 370, hjust = 0, label = kw.lab, size = 3) + 
+  coord_cartesian(ylim = c(0, 400)) + 
+  labs(title = "Individual HMAT AUCs") + 
+  theme(legend.position = "none")
+```
 
-ggplot(aucs, aes(x = Treatment, y = log(AUC + 1))) +
-  geom_quasirandom(aes(color = plate.id), dodge.width = 1, show.legend = F) + 
-  stat_summary(
-    aes(group = interaction(Treatment, plate.id)),
-    fun.data = "mean_cl_boot", 
-    color = "red", 
-    geom = "errorbar",
-    position = position_dodge(width = 1), 
-    width = 0.4
-  ) + 
-  facet_wrap(~ Week) + 
-  labs(title = "Individual HMAT AUCs, Log Transformed", subtitle = "by Treamtent, Week, and Plate")
-ggsave(file = "hmat_log(aucs+1)_plot_wPlates.pdf")
-
+```{r hmat-plot-with-plates, fig.cap="AUCS broken down by both plate and treatment"}
 ggplot(aucs, aes(x = Treatment, y = AUC)) +
   geom_quasirandom(aes(color = plate.id), dodge.width = 1, show.legend = F) + 
   stat_summary(
     aes(group = interaction(Treatment, plate.id)),
     fun.data = "mean_cl_boot", 
-    color = "red", 
+    color = "black", 
     geom = "errorbar",
     position = position_dodge(width = 1), 
     width = 0.4
   ) + 
-  facet_wrap(~ Week) + 
-  labs(title = "Individual HMAT AUCs", subtitle = "by Treamtent, Week, and Plate")
-ggsave(file = "hmat_aucs_plot_wPlates.pdf")
-
+  scale_color_brewer(palette = "Paired") + 
+  labs(title = "Individual HMAT AUCs") +
+  theme(legend.position = "none")
 ```
 
-```{r lpr-plots}
+```{r hmat-stats-with-plates}
+aucs1 <- copy(aucs)
+aucs1[
+  , 
+  plate.id.new := mgsub(
+    c("18099", "18100", "18101", "18102", "18103", "18104"),
+    c("1", "2", "1", "2", "1", "2"),
+    plate.id
+    )
+  ]
+kw <- kruskal.test(AUC ~ interaction(Treatment, plate.id), data = aucs)
+print(kw)
+
+if (kw$p.value < 0.05) {
+  dunn <- FSA::dunnTest(AUC ~ interaction(Treatment, plate.id.new), data = aucs1, method = "bh") 
+  dunn.dt <- as.data.table(dunn$res)
+  dunn.dt[, `:=`(P.unadj = round(P.unadj, 3), P.adj = round(P.adj, 3))]
+  cat("Significant (P.adj < 0.05) pairwise comparisons:", sep = "\n")
+  cat("", sep = "\n")
+  print(dunn.dt[P.adj < 0.05])
+  # dunn.dt[, Y := c(265, 295, 230)]
+}
+```
+
+```{r lpr-plots, eval=FALSE, echo=FALSE}
 lpr.pattern <- "behavior_5d_FOR_GUI_LPR"
-lpr.path1 <- file.path(dirs1, "GUI files", "RemovedAffected")
+lpr.path1 <- file.path(dirs, "GUI files", "RemovedAffected")
 lpr.files1 <- list.files(path = lpr.path1, pattern = lpr.pattern, full.names = T)
 lpr.data1 <- do.call("rbind", lapply(lpr.files1, read.csv)) %>% as.data.table()
 
@@ -224,7 +231,7 @@ ggplot(lpr.results, aes(sec, h.sec, colour = Treatment)) +
 ggsave("lpr_de_2weeks_plot.pdf")
 ```
 
-```{r lpr-stats}
+```{r lpr-stats, eval=FALSE, echo=FALSE}
 l1 <- paste0("t", seq(61,89))
 d1 <- paste0("t", seq(90,119))
 lstart <- 61
@@ -338,7 +345,7 @@ some1[ctrl.treat, "Treatment"] <- paste(some1[ctrl.treat, "Treatment"], "(Ctrl)"
 kable(some1)
 ```
 
-```{r death-plots}
+```{r death-plots, eval=FALSE, echo=FALSE}
 death.pattern1 <- "deathLog.csv"
 death.files1 <- list.files(pattern = death.pattern1)
 death.data1 <- do.call("rbind", lapply(death.files1, read.csv)) %>% as.data.table()
