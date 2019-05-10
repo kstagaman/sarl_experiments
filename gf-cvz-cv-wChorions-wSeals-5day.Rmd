@@ -16,7 +16,7 @@ expt.log[, Treatment := treat.code[as.character(Plate_description)]]
 setkey(expt.log, Plate_ID)
 plate.treat <- expt.log[, .(Plate_ID, Treatment)]
 
-dir.pattern1 <- "gf-vs-cvz-wChorions-10day-01and02"
+dir.pattern1 <- "gf-cvz-cv-wChorions-wSeals-8day-01"
 dir.pattern2 <- "gf-vs-cvz-wChorions-10day-03and04"
 dirs1 <- list.files(pattern = dir.pattern1)
 dirs2 <- list.files(pattern = dir.pattern2)
