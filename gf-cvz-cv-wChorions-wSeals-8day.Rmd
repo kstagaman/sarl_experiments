@@ -319,7 +319,7 @@ setkey(relativeRatios, Treatment)
 some1 <- some1[relativeRatios]
 setkey(some1, Treatment)
 some1[ctrl.treat, "Treatment"] <- paste(some1[ctrl.treat, "Treatment"], "(Ctrl)")
-knitr::kable(some1, caption = "Comparing GF and CVZ to CV") %>% 
+knitr::kable(some1, caption = "Comparing GF and CVZ to CV (Kolmogorov-Smirnov Tests)") %>% 
   kable_styling(bootstrap_options = "striped")
 
 ######
@@ -404,7 +404,7 @@ some2[as.character(AUC.ch2.wide$treat), c("Light_AUC_RelativeRatio", "Dark_AUC_R
     )
   ]
 some2[ctrl.treat, "Treatment"] <- paste(some2[ctrl.treat, "Treatment"], "(Ctrl)")
-knitr::kable(some2, caption = "Comparing GF to CVZ") %>% 
+knitr::kable(some2, caption = "Comparing GF to CVZ (Kolmogorov-Smirnov Tests)") %>% 
   kable_styling(bootstrap_options = "striped")
 ```
 
@@ -428,4 +428,16 @@ ggplot(hcal5, aes(sec, h.sec, colour = plate.id.new)) +
   scale_color_brewer(name = "Treatment", palette = "Paired") +
   labs(x = "Time", y = "Differential Entropy") + 
   theme(legend.position = "top")
+```
+
+
+### Day 5 - LSR
+
+```{r lsr-by-treatment-plot, fig.cap=""}
+lsr.pattern <- "behavior_5d_FOR_GUI_LSR"
+lsr.path <- file.path(dirs, "GUI files", "RemovedAffected")
+lsr.files <- list.files(path = lsr.path, pattern = lsr.pattern, full.names = T)
+lsr.data <- do.call("rbind", lapply(lsr.files, read.csv)) %>% as.data.table()
+lsr.data <- lsr.data[complete.cases(lsr.data)]
+lsr.data <- lsr.data[plate.treat, on = "plate==Plate_ID", nomatch = 0]
 ```

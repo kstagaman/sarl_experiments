@@ -370,7 +370,7 @@ if(length(grep("LPR", format_files)) >0 ){
 
       # hcal[which(hcal$h <= 0),'h'] <- 0
 
-      hcal.wide <- dcast(hcal,chemical.id + conc + plate ~ variable, value.var="h")
+      hcal.wide <- dcast(hcal, chemical.id + conc + plate ~ variable, value.var="h")
 
       phases <- c("light", "dark")
       ci <- unique(hcal$chemical.id)[!is.na(unique(hcal$chemical.id))]
