@@ -204,9 +204,9 @@ hcal4 <- hcal3[, .(h.sec = sum(ave.h)), by = c("Treatment", "sec")]
 
 ggplot(hcal4, aes(sec, h.sec, colour = Treatment)) +
   geom_path(lwd = 1.2, aes(group = Treatment)) +
-  geom_segment(x = 0, y = 10, xend = 150, yend = 10, color = "yellow") + 
+  geom_segment(x = 0, y = 10, xend = 150, yend = 10, color = "yellow") +
   scale_color_brewer(name = "Treatment", palette = "Dark2") +
-  labs(x = "Time", y = "Differential Entropy") + 
+  labs(x = "Time", y = "Differential Entropy") +
   theme(legend.position = "top")
 ```
 
@@ -237,8 +237,8 @@ treatments <- levels(hdata$Treatment)
 
 some1 <- matrix(
   data = 0,
-  nrow = length(treatments), 
-  ncol = length(headers), 
+  nrow = length(treatments),
+  ncol = length(headers),
   dimnames = list(1:length(treatments), headers)
   ) %>% as.data.table()
 some1$Treatment <- treatments
@@ -247,7 +247,7 @@ ctrl.treat <- "CV"
 ctrl <- hdata[Treatment == ctrl.treat]
 
 AUC.dt1 <- NULL
-# (treat <- treatments[3])
+# (treat <- treatments[1])
 for (treat in treatments) {
   hdata1 <- hdata[Treatment == treat]
   ##dark AUC
@@ -255,24 +255,24 @@ for (treat in treatments) {
   ksdark <- suppressWarnings(
     ks.test(
       ctrl[variable %in% d1]$h,
-      hdata1[variable %in% d1]$h, 
+      hdata1[variable %in% d1]$h,
       alternative = "two.sided"
     )
   )
   some1[treat, "Dark_Cycle_Pval"] <- round(ksdark$p.value, 3)
-  
+
   ##light AUC
   #Kolmogorov-Smirnov Goodness-of-Fit
   kslight <- suppressWarnings(
     ks.test(
       ctrl[variable %in% l1]$h,
-      hdata1[variable %in% l1]$h, 
+      hdata1[variable %in% l1]$h,
       alternative = "two.sided"
     )
   )
-  
+
   some1[treat, "Light_Cycle_Pval"] <- round(kslight$p.value, 3)
-  (phase <- phases[1])
+  # (phase <- phases[1])
   for (phase in phases) {
     if (phase == "light") {
       h1 <- paste0("t", lstart)
@@ -285,42 +285,66 @@ for (treat in treatments) {
     }
     hdat <- hdata1[variable %in% c(h1,hend,between)]
     
-    
-    # for(pl in plates){
-    #   hdat1 <- hdat %>% filter(plate == pl)
-    
     hdat[, variable := as.numeric(gsub("[a-zA-Z]", "\\2", as.character(variable)))]
-    auc <- caTools::trapz(hdat$variable, hdat$h)
+    auc <- hdat[, .(auc = caTools::trapz(variable, h)), by = c("Treatment", "plate")]
+    # auc <- caTools::trapz(hdat$variable, hdat$h)
     
-    hcalc <- data.frame(treat, auc, phase)
-    AUC.dt1 <- rbind(AUC.dt1, hcalc)
+    auc[, "phase" := phase]
+    AUC.dt1 <- rbind(AUC.dt1, auc)
     if (phase == "dark") {
-      some1[treat, "Dark_Cycle_AUC"] <- round(hcalc$auc,3) 
+      some1[treat, "Dark_Cycle_AUC"] <- round(mean(auc$auc),3)
     }
     if (phase == "light") {
-      some1[treat, "Light_Cycle_AUC"] <- round(hcalc$auc,3)    
+      some1[treat, "Light_Cycle_AUC"] <- round(mean(auc$auc),3)
     }
-    # } ##plates   
-  }##light phases
+  }
 }
 
 # AUC.ch1 <- AUC.ch %>% filter(c == co)
-AUC.ch1.wide <- dcast(AUC.dt1, treat ~ phase, value.var = "auc") %>% as.data.table()
-setkey(AUC.ch1.wide, treat)
+AUC.ch1.wide <- data.table::dcast(AUC.dt1, Treatment ~ phase, value.var = "auc", fun.aggregate = mean)
+setkey(AUC.ch1.wide, Treatment)
 relativeRatios <- AUC.ch1.wide[
   , 
   .(
-    Treatment = treat,
+    Treatment,
     Light_AUC_RelativeRatio = (light - AUC.ch1.wide[ctrl.treat, light])/AUC.ch1.wide[ctrl.treat, light],
     Dark_AUC_RelativeRatio = (dark - AUC.ch1.wide[ctrl.treat, dark])/AUC.ch1.wide[ctrl.treat, dark]
-    )
+  )
   ]
 setkey(relativeRatios, Treatment)
 some1 <- some1[relativeRatios]
 setkey(some1, Treatment)
 some1[ctrl.treat, "Treatment"] <- paste(some1[ctrl.treat, "Treatment"], "(Ctrl)")
-knitr::kable(some1, caption = "Comparing GF and CVZ to CV (Kolmogorov-Smirnov Tests)") %>% 
-  kable_styling(bootstrap_options = "striped")
+
+tab1 <- copy(some1)
+tab_melt1 <- melt(tab1, id = c("Treatment"))
+tab_melt1 <- tab_melt1 %>% tidyr::separate(variable, into = c("interval", "cycle", "readout"), sep = "_")
+# tab_melt1 <- tab_melt1 %>% dplyr::select("Treatment", "interval", "readout", "value")
+tab_melt1[, cycle := NULL]
+tab_melt1 <- tab_melt1 %>% tidyr::spread(readout, value)
+
+# stats_table1 <- merge(temp_qc, tab_melt1, by = c("chemical.id", "conc"))
+# stats_table1[, c("conc", "AUC", "Pval", "RelativeRatio")] <- apply(stats_table1[, c("conc", "AUC", "Pval", "RelativeRatio")], 2, function(x) as.numeric(as.character(x)))
+stats_table1 <- copy(tab_melt1)
+# stats_table1 <- stats_table1[order(stats_table1$chemical.id, stats_table1$interval, stats_table1$conc), ]
+# stats_table1[which(stats_table1$Pval <= 0.01 & stats_table1$ss_more_70perc == TRUE), "significance p<0.01"] <- "YES"
+stats_table1[, "significance p<0.01" := ifelse(Pval <= 0.01, "YES", "NO")]
+# stats_table1[which(stats_table1$`significance p<0.01` == "YES" & stats_table1$RelativeRatio >= .1), "activity"] <- "HYPER"
+stats_table1[, activity := ifelse(`significance p<0.01` == "YES" & RelativeRatio >= 0.1, "HYPER", NA)]
+# stats_table1[which(stats_table1$`significance p<0.01` == "YES" & stats_table1$RelativeRatio <= -.1), "activity"] <- "HYPO"
+stats_table1[, activity := ifelse(`significance p<0.01` == "YES" & RelativeRatio <= -0.1, "HYPO", NA)]
+# stats_table1[which(!is.na(stats_table1$activity)), "Sig"] <- "YES"
+stats_table1[, Sig := ifelse(is.na(activity), "NO", "YES")]
+
+stats_table1[order(-interval), -"interval"] %>%
+  dplyr::mutate(
+    activity = ifelse(!is.na(activity), cell_spec(activity, "html", bold = T), NA),
+    Sig = ifelse(Sig == "YES", cell_spec(Sig, "html", color = "green"), cell_spec(Sig, "html", color = "red"))
+    ) %>% 
+  kable(caption = "Comparing GF and CVZ to CV (Kolmogorov-Smirnov Tests)", escape = F) %>% 
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = F) %>%
+  pack_rows("Light Interval", 1, 3) %>%
+  pack_rows("Dark Interval", 4, 6)
 
 ######
 
@@ -337,6 +361,7 @@ ctrl.treat <- "CVZ"
 ctrl <- hdata[Treatment == ctrl.treat]
 
 AUC.dt2 <- NULL
+# treat <- no.cv[1]
 for (treat in no.cv) {
   hdata1 <- hdata[Treatment == treat]
   ##dark AUC
@@ -361,7 +386,7 @@ for (treat in no.cv) {
   )
   
   some2[treat, "Light_Cycle_Pval"] <- round(kslight$p.value, 3)
-  # phase <- phases[1]
+  phase <- phases[1]
   for (phase in phases) {
     if (phase == "light") {
       h1 <- paste0("t", lstart)
@@ -373,39 +398,58 @@ for (treat in no.cv) {
       between <- paste0("t", seq(dstart + 1, dend - 1))
     }
     hdat <- hdata1[variable %in% c(h1,hend,between)]
-    
-    
-    # for(pl in plates){
-    #   hdat1 <- hdat %>% filter(plate == pl)
-    
+
     hdat[, variable := as.numeric(gsub("[a-zA-Z]", "\\2", as.character(variable)))]
-    auc <- caTools::trapz(hdat$variable, hdat$h)
+    auc <- hdat[, .(auc = caTools::trapz(variable, h)), by = c("Treatment", "plate")]
     
-    hcalc <- data.frame(treat, auc, phase)
-    AUC.dt2 <- rbind(AUC.dt2, hcalc)
+    auc[, "phase" := phase]
+    AUC.dt2 <- rbind(AUC.dt2, auc)
     if (phase == "dark") {
-      some2[treat, "Dark_Cycle_AUC"] <- round(hcalc$auc,3) 
+      some2[treat, "Dark_Cycle_AUC"] <- round(mean(auc$auc),3)
     }
     if (phase == "light") {
-      some2[treat, "Light_Cycle_AUC"] <- round(hcalc$auc,3)    
+      some2[treat, "Light_Cycle_AUC"] <- round(mean(auc$auc),3)
     }
-    # } ##plates   
-  }##light phases
+  }
 }
 
-# AUC.ch1 <- AUC.ch %>% filter(c == co)
-AUC.ch2.wide <- dcast(AUC.dt2, treat ~ phase, value.var = "auc") %>% as.data.table()
-setkey(AUC.ch2.wide, treat)
-some2[as.character(AUC.ch2.wide$treat), c("Light_AUC_RelativeRatio", "Dark_AUC_RelativeRatio")] <- AUC.ch2.wide[
+AUC.ch2.wide <- data.table::dcast(AUC.dt2, Treatment ~ phase, value.var = "auc", fun.aggregate = mean)
+setkey(AUC.ch2.wide, Treatment)
+relativeRatios <- AUC.ch2.wide[
   , 
   .(
-    LRratio = (light - AUC.ch2.wide[ctrl.treat, light])/AUC.ch2.wide[ctrl.treat, light],
-    DRratio = (dark - AUC.ch2.wide[ctrl.treat, dark])/AUC.ch2.wide[ctrl.treat, dark]
-    )
+    Treatment,
+    Light_AUC_RelativeRatio = (light - AUC.ch2.wide[ctrl.treat, light])/AUC.ch2.wide[ctrl.treat, light],
+    Dark_AUC_RelativeRatio = (dark - AUC.ch2.wide[ctrl.treat, dark])/AUC.ch2.wide[ctrl.treat, dark]
+  )
   ]
+setkey(relativeRatios, Treatment)
+some2 <- some2[relativeRatios]
+setkey(some2, Treatment)
 some2[ctrl.treat, "Treatment"] <- paste(some2[ctrl.treat, "Treatment"], "(Ctrl)")
-knitr::kable(some2, caption = "Comparing GF to CVZ (Kolmogorov-Smirnov Tests)") %>% 
-  kable_styling(bootstrap_options = "striped")
+
+tab2 <- copy(some2)
+tab_melt2 <- melt(tab2, id = c("Treatment"))
+tab_melt2 <- tab_melt2 %>% tidyr::separate(variable, into = c("interval", "cycle", "readout"), sep = "_")
+# tab_melt2 <- tab_melt2 %>% dplyr::select("Treatment", "interval", "readout", "value")
+tab_melt2[, cycle := NULL]
+tab_melt2 <- tab_melt2 %>% tidyr::spread(readout, value)
+
+stats_table2 <- copy(tab_melt2)
+stats_table2[, "significance p<0.01" := ifelse(Pval <= 0.01, "YES", "NO")]
+stats_table2[, activity := ifelse(`significance p<0.01` == "YES" & RelativeRatio >= 0.1, "HYPER", NA)]
+stats_table2[, activity := ifelse(`significance p<0.01` == "YES" & RelativeRatio <= -0.1, "HYPO", NA)]
+stats_table2[, Sig := ifelse(is.na(activity), "NO", "YES")]
+
+stats_table2[order(-interval), -"interval"] %>%
+  dplyr::mutate(
+    activity = ifelse(!is.na(activity), cell_spec(activity, "html", bold = T), NA),
+    Sig = ifelse(Sig == "YES", cell_spec(Sig, "html", color = "green"), cell_spec(Sig, "html", color = "red"))
+    ) %>% 
+  kable(caption = "Comparing GF and CVZ to CV (Kolmogorov-Smirnov Tests)", escape = F) %>% 
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = F) %>%
+  pack_rows("Light Interval", 1, 2) %>%
+  pack_rows("Dark Interval", 3, 4)
 ```
 
 ```{r lpr-by-plate-plot, fig.cap="LPR results from epoch 2 by Treatment and Plate. Yellow line indicates light cycle (vs dark cycle)"}
