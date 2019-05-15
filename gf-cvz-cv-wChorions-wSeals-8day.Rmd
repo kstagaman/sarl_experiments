@@ -164,7 +164,7 @@ if (kw$p.value < 0.05) {
 
 ### Day 5 - LPR
 
-```{r lpr-by-treatment-plot, fig.cap="LPR results from epoch 2 by Treatment. Yellow line indicates light cycle (vs dark cycle)"}
+```{r lpr-ep2-by-treat-plot, fig.cap="LPR results from epoch 2 by Treatment. Yellow line indicates light cycle (vs dark cycle)"}
 lpr.pattern <- "behavior_5d_FOR_GUI_LPR"
 lpr.path <- file.path(dirs, "GUI files", "RemovedAffected")
 lpr.files <- list.files(path = lpr.path, pattern = lpr.pattern, full.names = T)
@@ -210,7 +210,7 @@ ggplot(hcal4, aes(sec, h.sec, colour = Treatment)) +
   theme(legend.position = "top")
 ```
 
-```{r lpr-stats}
+```{r lpr-ep2-stats}
 l1 <- paste0("t", seq(61,89))
 d1 <- paste0("t", seq(90,119))
 lstart <- 61
@@ -452,7 +452,7 @@ stats_table2[order(-interval), -"interval"] %>%
   pack_rows("Dark Interval", 3, 4)
 ```
 
-```{r lpr-by-plate-plot, fig.cap="LPR results from epoch 2 by Treatment and Plate. Yellow line indicates light cycle (vs dark cycle)"}
+```{r lpr-ep2-by-plate-plot, fig.cap="LPR results from epoch 2 by Treatment and Plate. Yellow line indicates light cycle (vs dark cycle)"}
 hcal5 <- hcal3[, .(h.sec = sum(ave.h)), by = c("Treatment", "plate", "sec")]
 hcal5[
   ,
@@ -474,6 +474,36 @@ ggplot(hcal5, aes(sec, h.sec, colour = plate.id.new)) +
   theme(legend.position = "top")
 ```
 
+```{r lpr-all-eps-stats}
+ctrl.treat <- "CV"
+dark_t <- c(paste0("t", seq(90,119)),paste0("t", seq(150,179)),paste0("t", seq(210,239)))
+light_t <- c(paste0("t", seq(61,89)),paste0("t", seq(120,149)),paste0("t", seq(180,209)))
+all_t <- paste0("t", seq(61,239))
+t_trans <- "t90"
+tab <- data.table()
+headers <- c("chemical.id", "conc", "Light_Cycle_Pval", "Dark_Cycle_Pval", 
+             "Light_Cycle_AUC", "Dark_Cycle_AUC",
+             "Light_Cycle_PercDiff", "Dark_Cycle_PercDiff",
+             "trans_dist", "trans_PercDiff", "trans_AOV_pval")
+dat <- as.data.frame(behav5d)
+c1 <- dat[which(dat$Treatment == ctrl.treat),]
+c1.clean <- c1[complete.cases(c1),]
+c1_all_aucs <- apply(c1.clean[,match(c(dark_t,light_t), names(c1.clean))], 2, trapz)
+c1_dark_aucs <- apply(c1.clean[,match(dark_t, names(c1.clean))], 2, trapz)
+
+
+dat <- copy(behav5d)
+c1 <- dat[Treatment == ctrl.treat]
+c1.clean <- c1[complete.cases(c1)]
+# cl_all_aucs <- 
+# c1.clean <- as.data.frame(c1.clean)
+# apply(c1.clean[,match(c(dark_t,light_t), names(c1.clean))], 2, trapz)
+c1.trapz <- c1.clean[, c(lapply(.SD, function(col) caTools::trapz(x = 1:nrow(c1.clean), y = col))), .SDcols = c(dark_t, light_t)]
+c1.sum <- c1.clean[, c(lapply(.SD, sum)), .SDcols = c(dark_t, light_t)]
+identical(c1.trapz, c1.sum)
+View(rbind(c1.trapz, c1.sum))
+c1.mean <- c1.clean[, c(lapply(.SD, mean)), .SDcols = c(dark_t, light_t)]
+```
 
 ### Day 5 - LSR
 
