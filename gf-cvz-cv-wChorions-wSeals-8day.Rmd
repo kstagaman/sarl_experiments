@@ -455,7 +455,7 @@ stats_table2[order(-interval), -"interval"] %>%
 ```{r lpr-by-plate-plot, fig.cap="LPR results from epoch 2 by Treatment and Plate. Yellow line indicates light cycle (vs dark cycle)"}
 hcal5 <- hcal3[, .(h.sec = sum(ave.h)), by = c("Treatment", "plate", "sec")]
 hcal5[
-  , 
+  ,
   plate.id.new := factor(
     mgsub(
       c("18099", "18100", "18101", "18102", "18103", "18104"),
@@ -468,9 +468,9 @@ hcal5[
 
 ggplot(hcal5, aes(sec, h.sec, colour = plate.id.new)) +
   geom_path(lwd = 1.2, aes(group = plate)) +
-  geom_segment(x = 0, y = 2.5, xend = 150, yend = 2.5, color = "yellow") + 
+  geom_segment(x = 0, y = 2.5, xend = 150, yend = 2.5, color = "yellow") +
   scale_color_brewer(name = "Treatment", palette = "Paired") +
-  labs(x = "Time", y = "Differential Entropy") + 
+  labs(x = "Time", y = "Differential Entropy") +
   theme(legend.position = "top")
 ```
 
