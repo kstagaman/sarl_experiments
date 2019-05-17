@@ -1,7 +1,9 @@
 ---
 title: "Zebrafish behavior"
-output: html_document
+output: github_document
+always_allow_html: yes
 ---
+
 #### Comparing Germ-free, Conventionalized, and Conventional Zebrafish in Sealed 96-well Plates
 
 ```{r setup, include=FALSE}
