@@ -1,5 +1,0 @@
-"chemical.id","conc","chemical.name","count","org_ss","perc","ss_more_70perc","interval","AUC","Pval","RelativeRatio","significance p<0.01","activity","Sig"
-"3530",0,"Non Germ Free",42,48,0.88,TRUE,"Dark",60.806,1,0,NA,NA,NA
-"3530",1,"Non Germ Free",308,333,0.92,TRUE,"Dark",48.268,0,-0.36,"YES","HYPO","YES"
-"3530",0,"Non Germ Free",42,48,0.88,TRUE,"Light",-15.096,1,0,NA,NA,NA
-"3530",1,"Non Germ Free",308,333,0.92,TRUE,"Light",35.189,0,0.063,"YES",NA,NA

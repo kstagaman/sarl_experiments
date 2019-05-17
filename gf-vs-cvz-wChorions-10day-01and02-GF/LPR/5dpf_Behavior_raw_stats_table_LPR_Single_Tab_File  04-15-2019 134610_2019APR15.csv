@@ -1,3 +1,0 @@
-"chemical.id","conc","Light_Cycle_Pval","Dark_Cycle_Pval","Light_Cycle_AUC","Dark_Cycle_AUC","Light_Cycle_PercDiff","Dark_Cycle_PercDiff","trans_dist","trans_PercDiff","trans_AOV_pval"
-"3529","0","1","1","2885.899","34408.217","0","0","8.425","0",0
-"3529","1","0","0","40747.812","275255.839","1311.962","699.971","9.549","13.341",0.485

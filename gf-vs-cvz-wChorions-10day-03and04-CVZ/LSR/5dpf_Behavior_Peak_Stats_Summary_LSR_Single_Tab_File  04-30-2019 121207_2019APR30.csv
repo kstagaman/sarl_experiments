@@ -1,3 +1,0 @@
-"chemical.id","chemical.name","conc","count","org_ss","ss_more_70perc","Peak.no","Peak_dist","Peak.pval","PeakDiff","significance p<0.05"
-"3530","Non Germ Free",0,42,48,TRUE,"4",3.694,1,0,NA
-"3530","Non Germ Free",1,308,333,TRUE,"4",2.735,0.005,-25.972,"YES"
