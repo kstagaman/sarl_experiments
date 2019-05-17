@@ -8,10 +8,6 @@ always_allow_html: yes
 #### Comparing Germ-free, Conventionalized, and Conventional Zebrafish in Sealed 96-well Plates
 
 ```{r setup, include=FALSE}
-# wds <- c("~/Google Drive/OSU/OSU_Home_Sync", "~/Google Drive/OSU_Home_Sync")
-# my.wd <- list.files(path = wds, pattern = "SARL Experiments", full.names = T)
-# setwd(my.wd)
-
 source("~/Code/R_scripts/require_lot_of_packages.R")
 libs <- c("data.table", "magrittr", "ggplot2", "cowplot", "ggbeeswarm", "caTools", "FSA", "ggsignif", "kableExtra")
 require.lots.of.pkgs(libs)
