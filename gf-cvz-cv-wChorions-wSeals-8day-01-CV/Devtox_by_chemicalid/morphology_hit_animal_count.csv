@@ -1,0 +1,3 @@
+"chemical.id","bottle.id","chemical.name","casrn","conc","MO24","DP24","SM24","NC24","MORT","YSE_","AXIS","EYE_","SNOU","JAW_","OTIC","PE__","BRAI","SOMI","PFIN","CFIN","PIG_","CIRC","TRUN","SWIM","NC__","TR__","any.except.MORT","any.effect"
+3530,"C125605","Non Germ Free",NA,0,1,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2
+3530,"C125605","Non Germ Free",NA,1,5,0,0,0,8,1,0,1,0,0,0,1,0,0,0,0,1,0,0,0,0,0,1,9

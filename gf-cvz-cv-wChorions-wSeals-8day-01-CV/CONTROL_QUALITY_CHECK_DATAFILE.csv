@@ -1,0 +1,2 @@
+"bottle.id","date","casrn","chemical.id","chemical.name","MO24","DP24","SM24","NC24","MORT","YSE_","AXIS","EYE_","SNOU","JAW_","OTIC","PE__","BRAI","SOMI","PFIN","CFIN","PIG_","CIRC","TRUN","SWIM","NC__","TR__","any.except.MORT","any.effect","qc_pass"
+"C125605",20190502,NA,3530,"Non Germ Free","4.17","0","0","0","8.33","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","8.33",TRUE
