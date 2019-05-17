@@ -1,5 +1,0 @@
-"chemical.id","chemical.name","conc","units","interval","count","org_ss","perc","ss_more_70perc","AUC","PercDiff","Pval","significance p<0.01","significance p<0.01 and 50% cutoff","activity","Comments"
-"3529","Germ Free",0,"","Dark",23,24,0.96,TRUE,22693.647,0,1,NA,NA,NA,NA
-"3529","Germ Free",0,"","Light",23,24,0.96,TRUE,1882.886,0,1,NA,NA,NA,NA
-"3529","Germ Free",1,"uM","Dark",159,167,0.95,TRUE,149159.454,557.274,0,"YES","YES","HYPER",NA
-"3529","Germ Free",1,"uM","Light",159,167,0.95,TRUE,22865.203,1114.37,0,"YES","YES","HYPER",NA
