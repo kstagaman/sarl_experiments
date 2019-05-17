@@ -1,6 +1,7 @@
 ---
 title: "Zebrafish behavior"
 output: github_document
+html_preview: true
 always_allow_html: yes
 ---
 
