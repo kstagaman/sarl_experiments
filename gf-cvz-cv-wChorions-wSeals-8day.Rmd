@@ -520,7 +520,7 @@ stats_table2[order(-interval), -"interval"] %>%
   pack_rows("Dark Interval", 3, 4)
 ```
 
-```{r lpr-ep2-by-plate-plot, fig.cap="LPR results from epoch 2 by Treatment and Plate. Yellow line indicates light cycle (vs dark cycle)"}
+```{r lpr-ep2-by-plate-plot, fig.cap="LPR results from epoch 2 by Treatment and Plate. Yellow line indicates light cycle (vs dark cycle)", eval = F, include = F}
 hcal5 <- hcal3[, .(h.sec = sum(ave.h)), by = c("Treatment", "plate", "sec")]
 hcal5[
   ,
