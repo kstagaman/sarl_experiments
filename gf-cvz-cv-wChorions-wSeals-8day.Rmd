@@ -94,15 +94,29 @@ aucs <- window.data[
 kw <- kruskal.test(AUC ~ Treatment, data = aucs)
 # print(kw)
 
+kable(
+  aucs[, .SD[1:5], by = Treatment], 
+  caption = "Example of AUC data used for statistics"
+  ) %>%
+    kable_styling(bootstrap_options = "striped")
+kable(
+  aucs[, .N, by = Treatment],
+  caption = "Number of samples per Treatment"
+) %>% 
+  kable_styling(bootstrap_options = "striped")
+
 if (kw$p.value < 0.05) {
   dunn <- FSA::dunnTest(AUC ~ Treatment, data = aucs, method = "bh") 
-  # print(dunn)
   dunn.dt <- as.data.table(dunn$res)
   dunn.dt[, c("Start", "End") := tstrsplit(Comparison, " - ", fixed = TRUE)]
   dunn.dt[, Label := sig.vals(P.adj)]
   dunn.dt[, Y := c(265, 295, 230)]
 }
-kw.lab <- paste0(names(kw$statistic), " = ", round(kw$statistic, 3), ", df = ", kw$parameter, ", p-value = ", round(kw$p.value, 3))
+kw.lab <- paste0(
+  names(kw$statistic), " = ", round(kw$statistic, 3), 
+  ", df = ", kw$parameter, 
+  ", p-value = ", round(kw$p.value, 3)
+  )
 
 ggplot(aucs) +
   geom_quasirandom(aes(x = Treatment, y = AUC, color = Treatment), dodge.width = 1) + 
@@ -128,6 +142,13 @@ ggplot(aucs) +
 ```
 
 ```{r hmat-plot-with-plates, fig.cap="AUCS broken down by both plate and treatment"}
+kable(
+  aucs[, .N, by = c("Treatment", "plate.id")],
+  caption = "Number of samples per Treatment"
+) %>% 
+  kable_styling(bootstrap_options = "striped") %>% 
+  collapse_rows(columns = 1)
+
 ggplot(aucs, aes(x = Treatment, y = AUC)) +
   geom_quasirandom(aes(color = plate.id), dodge.width = 1, show.legend = F) + 
   stat_summary(
@@ -200,14 +221,53 @@ hcal <- melt(behav5d, id = c("Treatment", "chemical.id", "well", "conc", "plate"
 hcal <- hcal[, .(h = DE(value)), by = c("Treatment", "plate", "variable")]
 hcal[, Treatment := factor(Treatment)]
 
+hcal.print <- copy(hcal)
+names(hcal.print) <- c("Treatment", "Plate", "Time_Point", "h")
+kable(
+  hcal.print[, .SD[1:5], by = c("Treatment", "Plate")],
+  caption = "LPR Analysis Step 1: calculate h (Differential Entropy) by Treatment, Plate, and Timepoint"
+) %>% 
+  kable_styling(bootstrap_options = "striped") %>% 
+  collapse_rows(columns = 1:2)
+kable(
+  hcal.print[, .N, by = c("Treatment")],
+  caption = "LPR Analysis Step 1: number of values"
+) %>% 
+  kable_styling(bootstrap_options = "striped")
+
 hcal2 <- hcal[variable %in% ep2]
-hcal2 <- hcal2[, .(ave.h = mean(h)), by = c("Treatment", "plate", "variable")]
+hcal2 <- hcal2[, .(ave.h = mean(h)), by = c("Treatment", "variable")]
+hcal2.print <- copy(hcal2)
+names(hcal2.print) <- c("Treatment", "Time_Point", "Avg(h)")
+kable(
+  hcal2.print[, .SD[1:5], by = Treatment],
+  caption = "LPR Analysis Step 2: calculate Avg(h) (mean Differential Entropy) by Treatment and Timepoint for 2nd epoch"
+) %>% 
+  kable_styling(bootstrap_options = "striped") %>% 
+  collapse_rows(columns = 1:2)
+kable(
+  hcal2.print[, .N, by = Treatment]
+) %>% 
+  kable_styling(bootstrap_options = "striped")
 hcal2$time <- gsub("[a-zA-Z]", "\\2", hcal2$variable)
 hcal2$time <- as.numeric(as.character(hcal2$time))
 hcal3 <- hcal2
 hcal3[, sec := (floor((time - 61) / 5)) * 30]
 
 hcal4 <- hcal3[, .(h.sec = sum(ave.h)), by = c("Treatment", "sec")]
+
+hcal4.print <- copy(hcal4)
+kable(
+  hcal4.print[, .SD[1:5], by = Treatment],
+  caption = "LPR Analysis Step 3: caluclate sum of Avg(h) [h.sec] by Treatment along 30-second increments"
+  ) %>% 
+  kable_styling(bootstrap_options = "striped") %>% 
+  collapse_rows(columns = 1)
+kable(
+  hcal4.print[, .N, by = Treatment]
+) %>% 
+  kable_styling(bootstrap_options = "striped")
+
 hcal4[, Treatment := factor(Treatment, levels = c("CV", "CVZ", "GF"))]
 
 ggplot(hcal4, aes(sec, h.sec, colour = Treatment)) +
