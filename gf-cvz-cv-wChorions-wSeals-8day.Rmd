@@ -9,11 +9,18 @@ always_allow_html: yes
 
 ```{r setup, include=FALSE}
 source("~/Code/R_scripts/require_lot_of_packages.R")
-libs <- c("data.table", "magrittr", "ggplot2", "cowplot", "ggbeeswarm", "caTools", "FSA", "ggsignif", "kableExtra")
+libs <- c("data.table", "magrittr", "ggplot2", "cowplot", "ggbeeswarm", "caTools", "FSA", "ggsignif", "kableExtra", "RColorBrewer", "LaCroixColoR")
 require.lots.of.pkgs(libs)
 source("~/Code/R_scripts/mgsub.R")
 
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
+figure_theme <- theme_update(
+  legend.position = "top",
+  plot.caption = element_text(hjust = 0, vjust = 1, size = 10)
+)
+tbl.font.size <- 10
+figure.env <- new.env()
+figure.env$count <- 0
 
 treat.code <- c("germ-free" = "GF", "conventionalized" = "CVZ", "conventional" = "CV")
 expt.log <- read.csv("SARL Experiment Log.csv") %>% as.data.table()
@@ -41,19 +48,41 @@ sig.stars <- function(x) {
 sig.vals <- function(x, a = 3) {
   paste("p =", round(x, a))
 }
-three_colors <- scale_color_brewer(name = "Treatment", palette = "Dark2")
-three_fills <- scale_fill_brewer(name = "Treatment", palette = "Dark2")
-brewer.paired <- RColorBrewer::brewer.pal(12, "Paired")
-my.pairs <- brewer.paired[c(3, 4, 7, 8, 9, 10)]
+wrap.caption <- function(caption, w = 100) {
+  split.cap <- strwrap(caption, width = w)
+  wrapped.cap <- paste(split.cap, collapse = "\n")
+  return(wrapped.cap)
+}
+create.caption <- function(caption) {
+  figure.env$count <- figure.env$count + 1
+  cap <- paste0("Figure ", figure.env$count, ". ", caption)
+  return(wrap.caption(cap))
+}
+# three_colors <- scale_color_brewer(name = "Treatment", palette = "Dark2")
+base.cols <- lacroix_palettes$Apricot[1, c(4, 2, 6)]
+three_colors <- scale_color_manual(name = "Treatment", values = base.cols)
+# three_fills <- scale_fill_brewer(name = "Treatment", palette = "Dark2")
+three_fills <- scale_fill_manual(name = "Treatment", values = base.cols)
+# brewer.paired <- RColorBrewer::brewer.pal(12, "Paired")
+# my.pairs <- brewer.paired[c(3, 4, 7, 8, 9, 10)]
+# plate_id_colors <- scale_color_manual(name = "Plate", values = my.pairs[c(5, 6, 3, 4, 1, 2)])
+# plate_id_new_colors <- scale_color_manual(name = "Plate", values = my.pairs)
+# plate_id_new_fills <- scale_fill_manual(name = "Plate", values = my.pairs)
+my.pairs <- c(
+  base.cols[1], lacroix_palettes$Pure[1, 1], 
+  base.cols[2], lacroix_palettes$PommeBaya[1, 2],
+  base.cols[3], lacroix_palettes$PeachPear[1, 5]
+  )
 plate_id_colors <- scale_color_manual(name = "Plate", values = my.pairs[c(5, 6, 3, 4, 1, 2)])
 plate_id_new_colors <- scale_color_manual(name = "Plate", values = my.pairs)
 plate_id_new_fills <- scale_fill_manual(name = "Plate", values = my.pairs)
-my.yellow <- tail(RColorBrewer::brewer.pal(6, "Set2"), 1)
+my.yellow <- tail(RColorBrewer::brewer.pal(12, "Set3"), 1)
 ```
+
 
 ### Day 1 - HMAT
 
-```{r hmat-all-movement-plot, fig.cap="Red lines indicate the window of movement we will analyze statistically"}
+```{r hmat-all-movement-plot}
 hmat.pattern <- "behavior_24h_FOR_GUI_HMAT_With_Removal"
 hmat.path <- file.path(dirs, "GUI files", "RemovedAffected")
 hmat.files <- list.files(path = hmat.path, pattern = hmat.pattern, full.names = T)
@@ -66,6 +95,10 @@ hmat.melt[, variable := as.numeric(gsub("t", "", variable))]
 hmat.melt[, plate.id := factor(plate.id)]
 hmat.melt[, Treatment := factor(Treatment)]
 
+
+cap <- create.caption(
+  "Plot of movement in microns over time. Lines indicate mean movement per treatment, ribbons indicate bootstrapped 95% CIs. Vertical red lines indicate the window of movement we will analyze statistically"
+)
 ggplot(hmat.melt, aes(x = variable, y = value)) +
   geom_vline(xintercept = c(30, 40), color = "red", size = 0.3) +
   stat_summary(
@@ -78,11 +111,10 @@ ggplot(hmat.melt, aes(x = variable, y = value)) +
   coord_cartesian(xlim = c(21, 48)) +
   three_colors +
   three_fills + 
-  labs(x = "Time", y = "Movement [µM]", title = "HMAT Results") + 
-  theme(legend.position = "top")
+  labs(x = "Time", y = "Movement [µM]", title = "HMAT Results", caption = wrap.caption(cap))
 ```
 
-```{r hmat-auc-stats, fig.cap="Post-hoc pairwise comparisons conducted with Dunn's Kruskal-Wallis Multiple Comparisons Test with False Discovery Rate"}
+```{r hmat-auc-stats}
 window.data <- hmat.melt[variable > 29 & variable < 41]
 aucs <- window.data[
   ,
@@ -98,12 +130,12 @@ kable(
   aucs[, .SD[1:5], by = Treatment], 
   caption = "Example of AUC data used for statistics"
   ) %>%
-    kable_styling(bootstrap_options = "striped")
+    kable_styling(bootstrap_options = "striped", font_size = tbl.font.size)
 kable(
   aucs[, .N, by = Treatment],
   caption = "Number of samples per Treatment"
 ) %>% 
-  kable_styling(bootstrap_options = "striped")
+  kable_styling(bootstrap_options = "striped", font_size = tbl.font.size)
 
 if (kw$p.value < 0.05) {
   dunn <- FSA::dunnTest(AUC ~ Treatment, data = aucs, method = "bh") 
@@ -117,7 +149,9 @@ kw.lab <- paste0(
   ", df = ", kw$parameter, 
   ", p-value = ", round(kw$p.value, 3)
   )
-
+cap <- create.caption(
+  "Plot of AUCs for individual wells (larvae) within each Treatment, calculated using the trapezoid method. Post-hoc pairwise comparisons were conducted with Dunn's Kruskal-Wallis Multiple Comparisons Test with False Discovery Rate"
+)
 ggplot(aucs) +
   geom_quasirandom(aes(x = Treatment, y = AUC, color = Treatment), dodge.width = 1) + 
   stat_summary(
@@ -137,18 +171,20 @@ ggplot(aucs) +
   ) + 
   annotate("text", x = 0.2, y = 370, hjust = 0, label = kw.lab, size = 3) + 
   coord_cartesian(ylim = c(0, 400)) + 
-  labs(title = "Individual HMAT AUCs") + 
+  labs(title = "Individual HMAT AUCs", caption = cap) + 
   theme(legend.position = "none")
 ```
 
-```{r hmat-plot-with-plates, fig.cap="AUCS broken down by both plate and treatment"}
+```{r hmat-plot-with-plates}
 kable(
   aucs[, .N, by = c("Treatment", "plate.id")],
   caption = "Number of samples per Treatment"
 ) %>% 
-  kable_styling(bootstrap_options = "striped") %>% 
+  kable_styling(bootstrap_options = "striped", font_size = tbl.font.size) %>% 
   collapse_rows(columns = 1)
-
+cap <- create.caption(
+  "Plot of AUCs for individual wells (larvae) within each Plate, calculated using the trapezoid method."
+)
 ggplot(aucs, aes(x = Treatment, y = AUC)) +
   geom_quasirandom(aes(color = plate.id), dodge.width = 1, show.legend = F) + 
   stat_summary(
@@ -160,7 +196,7 @@ ggplot(aucs, aes(x = Treatment, y = AUC)) +
     width = 0.4
   ) + 
   plate_id_colors + 
-  labs(title = "Individual HMAT AUCs") +
+  labs(title = "Individual HMAT AUCs", caption = cap) +
   theme(legend.position = "none")
 ```
 
@@ -184,7 +220,7 @@ if (kw$p.value < 0.05) {
   # cat("Significant (P.adj < 0.05) pairwise comparisons:", sep = "\n")
   # cat("", sep = "\n")
   knitr::kable(dunn.dt[P.adj < 0.05], caption = "Significant (P.adj < 0.05) pairwise comparisons") %>%
-    kable_styling(bootstrap_options = "striped")
+    kable_styling(bootstrap_options = "striped", font_size = tbl.font.size)
   # dunn.dt[, Y := c(265, 295, 230)]
 }
 ```
@@ -193,7 +229,8 @@ if (kw$p.value < 0.05) {
 
 #### Second Epoch Only
 
-```{r lpr-ep2-by-treat-plot, fig.cap="LPR results from epoch 2 by Treatment. Yellow line indicates light cycle (vs dark cycle)"}
+
+```{r lpr-ep2-by-treat-plot1}
 lpr.pattern <- "behavior_5d_FOR_GUI_LPR"
 lpr.path <- file.path(dirs, "GUI files", "RemovedAffected")
 lpr.files <- list.files(path = lpr.path, pattern = lpr.pattern, full.names = T)
@@ -227,13 +264,13 @@ kable(
   hcal.print[, .SD[1:5], by = c("Treatment", "Plate")],
   caption = "LPR Analysis Step 1: calculate h (Differential Entropy) by Treatment, Plate, and Timepoint"
 ) %>% 
-  kable_styling(bootstrap_options = "striped") %>% 
+  kable_styling(bootstrap_options = "striped", font_size = tbl.font.size) %>% 
   collapse_rows(columns = 1:2)
 kable(
   hcal.print[, .N, by = c("Treatment")],
   caption = "LPR Analysis Step 1: number of values"
 ) %>% 
-  kable_styling(bootstrap_options = "striped")
+  kable_styling(bootstrap_options = "striped", font_size = tbl.font.size)
 
 hcal2 <- hcal[variable %in% ep2]
 hcal2 <- hcal2[, .(ave.h = mean(h)), by = c("Treatment", "variable")]
@@ -243,15 +280,15 @@ kable(
   hcal2.print[, .SD[1:5], by = Treatment],
   caption = "LPR Analysis Step 2: calculate Avg(h) (mean Differential Entropy) by Treatment and Timepoint for 2nd epoch"
 ) %>% 
-  kable_styling(bootstrap_options = "striped") %>% 
+  kable_styling(bootstrap_options = "striped", font_size = tbl.font.size) %>% 
   collapse_rows(columns = 1:2)
 kable(
   hcal2.print[, .N, by = Treatment]
 ) %>% 
-  kable_styling(bootstrap_options = "striped")
+  kable_styling(bootstrap_options = "striped", font_size = tbl.font.size)
 hcal2$time <- gsub("[a-zA-Z]", "\\2", hcal2$variable)
 hcal2$time <- as.numeric(as.character(hcal2$time))
-hcal3 <- hcal2
+hcal3 <- copy(hcal2)
 hcal3[, sec := (floor((time - 61) / 5)) * 30]
 
 hcal4 <- hcal3[, .(h.sec = sum(ave.h)), by = c("Treatment", "sec")]
@@ -261,22 +298,45 @@ kable(
   hcal4.print[, .SD[1:5], by = Treatment],
   caption = "LPR Analysis Step 3: caluclate sum of Avg(h) [h.sec] by Treatment along 30-second increments"
   ) %>% 
-  kable_styling(bootstrap_options = "striped") %>% 
+  kable_styling(bootstrap_options = "striped", font_size = tbl.font.size) %>% 
   collapse_rows(columns = 1)
 kable(
   hcal4.print[, .N, by = Treatment]
 ) %>% 
-  kable_styling(bootstrap_options = "striped")
+  kable_styling(bootstrap_options = "striped", font_size = tbl.font.size)
 
 hcal4[, Treatment := factor(Treatment, levels = c("CV", "CVZ", "GF"))]
-
+light.seg.y <- floor(min(hcal4$h.sec))
+cap <- create.caption(
+  "LPR results from epoch 2 by Treatment, plotted according to same method as from SARL workflow. Each line represents the sum of the mean DE at each time point for each treatment [sum(mean(DE)) ~ Treatment + Sec]. The yellow line indicates light cycle (vs dark cycle)"
+)
 ggplot(hcal4, aes(sec, h.sec, colour = Treatment)) +
   geom_path(lwd = 1.2, aes(group = Treatment)) +
-  geom_segment(x = 0, y = 10, xend = 150, yend = 10, color = my.yellow) +
-  scale_color_brewer(name = "Treatment", palette = "Dark2") +
-  labs(x = "Time (sec)", y = "Differential Entropy") +
-  theme(legend.position = "top")
+  geom_segment(x = 0, y = light.seg.y, xend = 150, yend = light.seg.y, color = my.yellow, size = 2) +
+  # scale_color_brewer(name = "Treatment", palette = "Dark2") +
+  three_colors + 
+  labs(x = "Time (sec)", y = "Differential Entropy", caption = cap)
 ```
+
+```{r lpr-ep2-by-treat-plot2}
+hcal.plotdata <- hcal[variable %in% ep2]
+hcal.plotdata[, time := as.numeric(gsub("t", "", as.character(variable)))]
+hcal.plotdata[, sec := (floor((time - 61) / 5)) * 30]
+light.seg.y <- floor(min(hcal.plotdata$h))
+cap <- create.caption(
+  "LPR results from epoch 2 by Treatment, plotted from raw DE values (which are used for calculating stats). Each line represents the mean DE at each time point for each treatment [mean(DE) ~ Treatment + Sec], and the shading indicates the bootstrapped 95% CI [smean.cl.boot()]. The yellow line indicates light cycle (vs dark cycle)"
+)
+ggplot(hcal.plotdata, aes(x = sec, y = h)) +
+  stat_summary(fun.data = "mean_cl_boot", geom = "ribbon", aes(fill = Treatment), alpha = 0.2) +
+  stat_summary(fun.y = mean, geom = "path", aes(color = Treatment)) + 
+  geom_segment(x = 0, y = light.seg.y, xend = 150, yend = light.seg.y, color = my.yellow) +
+  three_colors + 
+  three_fills + 
+  labs(x = "Time (sec)", y = "Differential Entropy", caption = cap) +
+  coord_cartesian(ylim = c(light.seg.y, max(hcal.plotdata$h)))
+```
+
+I am unsure why there's the dip in DE for the Fig. 4 but not for Fig. 5. The math should be the same, the difference is that for Fig. 4, the mean and then sum of DE is calculated prior to plotting, whereas in Fig. 5 I let `ggplot` do the math for me with `stat_summary`. I'll look into this discrepancy. (Also see below in Figs. 7 and 8, the dip at the end is not there either.)
 
 ```{r lpr-ep2-stats}
 l1 <- paste0("t", seq(61,89))
@@ -315,7 +375,7 @@ ctrl.treat <- "CV"
 ctrl <- hdata[Treatment == ctrl.treat]
 
 AUC.dt1 <- NULL
-# (treat <- treatments[1])
+# (treat <- treatments[2])
 for (treat in treatments) {
   hdata1 <- hdata[Treatment == treat]
   ##dark AUC
@@ -410,7 +470,11 @@ stats_table1[order(-interval), -"interval"] %>%
     Sig = ifelse(Sig == "YES", cell_spec(Sig, "html", color = "green"), cell_spec(Sig, "html", color = "red"))
     ) %>% 
   kable(caption = "Comparing GF and CVZ to CV (Kolmogorov-Smirnov Tests)", escape = F) %>% 
-  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = F) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "condensed"), 
+    full_width = F, 
+    font_size = tbl.font.size
+    ) %>%
   pack_rows("Light Interval", 1, 3) %>%
   pack_rows("Dark Interval", 4, 6)
 
@@ -515,13 +579,17 @@ stats_table2[order(-interval), -"interval"] %>%
     Sig = ifelse(Sig == "YES", cell_spec(Sig, "html", color = "green"), cell_spec(Sig, "html", color = "red"))
     ) %>% 
   kable(caption = "Comparing GF and CVZ to CV (Kolmogorov-Smirnov Tests)", escape = F) %>% 
-  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = F) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "condensed"), 
+    full_width = F,
+    font_size = tbl.font.size
+    ) %>%
   pack_rows("Light Interval", 1, 2) %>%
   pack_rows("Dark Interval", 3, 4)
 ```
 
-```{r lpr-ep2-by-plate-plot, fig.cap="LPR results from epoch 2 by Treatment and Plate. Yellow line indicates light cycle (vs dark cycle)", eval = F, include = F}
-hcal5 <- hcal3[, .(h.sec = sum(ave.h)), by = c("Treatment", "plate", "sec")]
+```{r lpr-ep2-by-plate-plot1}
+hcal5 <- hcal.plotdata[, .(h.sec = sum(mean(h))), by = c("Treatment", "plate", "sec")]
 hcal5[
   ,
   plate.id.new := factor(
@@ -533,19 +601,51 @@ hcal5[
     levels = c("CV.1", "CV.2", "CVZ.1", "CVZ.2", "GF.1", "GF.2")
   )
   ]
-
-ggplot(hcal5, aes(sec, h.sec, colour = plate.id.new)) +
+light.seg.y <- floor(min(hcal5$h.sec))
+cap <- create.caption(
+  "LPR results from epoch 2 by Treatment and Plate, plotted according to same method as from SARL workflow. Each line represents the sum of the mean DE at each time point for each treatment [sum(mean(DE)) ~ Treatment + Plate + Sec]. The yellow line indicates light cycle (vs dark cycle)"
+)
+ggplot(hcal5, aes(x = sec, y = h.sec, colour = plate.id.new)) +
   geom_path(lwd = 1.2, aes(group = plate)) +
-  geom_segment(x = 0, y = 2.5, xend = 150, yend = 2.5, color = my.yellow) +
+  geom_segment(x = 0, y = light.seg.y, xend = 150, yend = light.seg.y, color = my.yellow, size = 2) +
   plate_id_new_colors + 
-  labs(x = "Time", y = "Differential Entropy") +
-  theme(legend.position = "top")
+  labs(x = "Time", y = "Differential Entropy", caption = cap) +
+  coord_cartesian(ylim = c(light.seg.y, max(hcal5$h.sec)))
+```
+
+
+```{r lpr-ep2-by-plate-plot2}
+hcal.plotdata[
+  ,
+  plate.id.new := factor(
+    mgsub(
+      c("18099", "18100", "18101", "18102", "18103", "18104"),
+      c("GF.1", "GF.2", "CVZ.1", "CVZ.2", "CV.1", "CV.2"),
+      plate
+    ),
+    levels = c("CV.1", "CV.2", "CVZ.1", "CVZ.2", "GF.1", "GF.2")
+  )
+  ]
+light.seg.y <- floor(min(hcal.plotdata$h))
+cap <- create.caption(
+  "LPR results from epoch 2 by Treatment and Plate, plotted from raw DE values (which are used for calculating stats). Each line represents the mean DE at each time point for each treatment [mean(DE) ~ Treatment + Plate + Sec], and the shading indicates the bootstrapped 95% CI [smean.cl.boot()]. The yellow line indicates light cycle (vs dark cycle)"
+)
+ggplot(hcal.plotdata, aes(x = sec, y = h)) +
+  # geom_path(lwd = 1.2, aes(group = Treatment)) +
+  stat_summary(fun.data = "mean_cl_boot", geom = "ribbon", aes(fill = plate.id.new), alpha = 0.2) +
+  stat_summary(fun.y = mean, geom = "path", aes(color = plate.id.new)) + 
+  geom_segment(x = 0, y = light.seg.y, xend = 150, yend = light.seg.y, color = my.yellow, size = 2) +
+  # scale_color_brewer(name = "Treatment", palette = "Dark2") +
+  plate_id_new_colors + 
+  plate_id_new_fills + 
+  labs(x = "Time (sec)", y = "Differential Entropy", caption = cap) +
+  coord_cartesian(ylim = c(light.seg.y, max(hcal.plotdata$h)))
 ```
 
 #### All* Epochs
 
 \* 2nd thru 4th. The first is dropped in the script given to my by Lisa.
-```{r lpr-all-eps-plot, fig.cap="Lines indicate treatment means, shading indicates the bootstrapped 95% CI for each mean. Yellow segments at bottom indicate light intervals (vs dark intervals)."} 
+```{r lpr-all-eps-plot} 
 # "1" = seq(61,89), "2" = seq(120,149), "3" = seq(180,209)
 light_t <- data.table(
   Epoch = c(1, 2, 3),
@@ -559,6 +659,9 @@ lpr.plot.data <- melt(lpr.plot.data, id.vars = idVars)
 lpr.plot.data[, variable := as.numeric(gsub("t", "", variable))]
 lpr.plot.data <- lpr.plot.data[variable >= light_t$Start_t[1]]
 lpr.plot.data[, variable := variable * 0.1] # in minutes 0.1  = 6/60, 6 sec between measurements
+cap <- create.caption(
+  "LPR results from 2nd, 3rd, and 4th epochs. Lines indicate mean movement (raw) by Treatment, shading indicates the bootstrapped 95% CIs. Yellow segments at bottom indicate light intervals (vs dark intervals)."
+)
 ggplot(lpr.plot.data) +
   stat_summary(
     aes(x = variable, y = value, fill = Treatment),
@@ -579,8 +682,7 @@ ggplot(lpr.plot.data) +
     ) +
   three_colors + 
   three_fills + 
-  labs(x = "Time (min)", y = "Movement", "LPR results, 2nd, 3rd, and 4th Epochs") + 
-  theme(legend.position = "top")
+  labs(x = "Time (min)", y = "Movement", caption = cap)
 ```
 
 ```{r lpr-all-eps-stats}
@@ -709,9 +811,13 @@ stats1_tbl[, activity := ifelse(`significance p<0.01` == "YES" &  PercDiff < -50
 stats1_tbl[order(-interval), -"interval"] %>%
   dplyr::mutate(
     activity = ifelse(!is.na(activity), cell_spec(activity, "html", bold = T), NA),
-    ) %>%
+  ) %>%
   kable(caption = "Comparing GF and CVZ to CV (Kolmogorov-Smirnov Tests)", escape = F) %>%
-  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = F) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "condensed"), 
+    full_width = F, 
+    font_size = tbl.font.size
+  ) %>%
   pack_rows("Light Interval", 1, 3) %>%
   pack_rows("Dark Interval", 4, 6)
 
@@ -833,12 +939,16 @@ stats2_tbl[order(-interval), -"interval"] %>%
     activity = ifelse(!is.na(activity), cell_spec(activity, "html", bold = T), NA),
     ) %>%
   kable(caption = "Comparing GF to CVZ (Kolmogorov-Smirnov Tests)", escape = F) %>%
-  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = F) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "condensed"), 
+    full_width = F,
+    font_size = tbl.font.size
+    ) %>%
   pack_rows("Light Interval", 1, 2) %>%
   pack_rows("Dark Interval", 3, 4)
 ```
 
-```{r lpr-all-eps-plot-by-plate, fig.height=10, fig.cap="Lines indicate plate means, shading indicates the bootstrapped 95% CI for each mean. Yellow segments at bottom indicate light intervals (vs dark intervals)."}
+```{r lpr-all-eps-plot-by-plate, fig.height=10}
 light_t <- data.table(
   Epoch = c(1, 2, 3),
   Start_t = c(61, 120, 180),
@@ -856,6 +966,9 @@ lpr.plot.data[
     levels = c("CV.1", "CV.2", "CVZ.1", "CVZ.2", "GF.1", "GF.2")
   )
   ]
+cap <- create.caption(
+  "Lines indicate mean movement (raw) by Plate, shading indicates the bootstrapped 95% CIs. Yellow segments at bottom indicate light intervals (vs dark intervals)."
+)
 full.plot <- ggplot(lpr.plot.data) +
   stat_summary(
     aes(x = variable, y = value, fill = plate.id.new),
@@ -876,10 +989,12 @@ full.plot <- ggplot(lpr.plot.data) +
     ) +
   plate_id_new_colors + 
   plate_id_new_fills +
-  labs(x = "Time (min)", y = "Movement", "LPR results, 2nd, 3rd, and 4th Epochs") + 
-  theme(legend.position = "top")
+  labs(x = "Time (min)", y = "Movement", "LPR results, 2nd, 3rd, and 4th Epochs")
 
-by.treat <- full.plot + facet_wrap(~ Treatment, ncol = 1) + theme(legend.position = "none")
+by.treat <- full.plot + 
+  facet_wrap(~ Treatment, ncol = 1) + 
+  theme(legend.position = "none") + 
+  labs(caption = cap)
 plot_grid(
   full.plot + theme(axis.title.x = element_blank()), 
   by.treat, 
