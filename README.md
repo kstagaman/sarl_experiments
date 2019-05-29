@@ -5,12 +5,11 @@ Zebrafish behavior
 
 ### Day 1 - HMAT
 
-![Red lines indicate the window of movement we will analyze
-statistically](gf-cvz-cv-wChorions-wSeals-8day_files/figure-gfm/hmat-all-movement-plot-1.png)
+![](gf-cvz-cv-wChorions-wSeals-8day_files/figure-gfm/hmat-all-movement-plot-1.png)<!-- -->
 
-<table class="table table-striped" style="margin-left: auto; margin-right: auto;">
+<table class="table table-striped" style="font-size: 10px; margin-left: auto; margin-right: auto;">
 
-<caption>
+<caption style="font-size: initial !important;">
 
 Example of AUC data used for statistics
 
@@ -474,9 +473,9 @@ E01
 
 </table>
 
-<table class="table table-striped" style="margin-left: auto; margin-right: auto;">
+<table class="table table-striped" style="font-size: 10px; margin-left: auto; margin-right: auto;">
 
-<caption>
+<caption style="font-size: initial !important;">
 
 Number of samples per Treatment
 
@@ -556,13 +555,11 @@ CV
 
 </table>
 
-![Post-hoc pairwise comparisons conducted with Dunn’s Kruskal-Wallis
-Multiple Comparisons Test with False Discovery
-Rate](gf-cvz-cv-wChorions-wSeals-8day_files/figure-gfm/hmat-auc-stats-1.png)
+![](gf-cvz-cv-wChorions-wSeals-8day_files/figure-gfm/hmat-auc-stats-1.png)<!-- -->
 
-<table class="table table-striped" style="margin-left: auto; margin-right: auto;">
+<table class="table table-striped" style="font-size: 10px; margin-left: auto; margin-right: auto;">
 
-<caption>
+<caption style="font-size: initial !important;">
 
 Number of samples per Treatment
 
@@ -714,8 +711,7 @@ CV
 
 </table>
 
-![AUCS broken down by both plate and
-treatment](gf-cvz-cv-wChorions-wSeals-8day_files/figure-gfm/hmat-plot-with-plates-1.png)
+![](gf-cvz-cv-wChorions-wSeals-8day_files/figure-gfm/hmat-plot-with-plates-1.png)<!-- -->
 
     ## 
     ##  Kruskal-Wallis rank sum test
@@ -723,9 +719,9 @@ treatment](gf-cvz-cv-wChorions-wSeals-8day_files/figure-gfm/hmat-plot-with-plate
     ## data:  AUC by interaction(Treatment, plate.id)
     ## Kruskal-Wallis chi-squared = 40.028, df = 5, p-value = 1.474e-07
 
-<table class="table table-striped" style="margin-left: auto; margin-right: auto;">
+<table class="table table-striped" style="font-size: 10px; margin-left: auto; margin-right: auto;">
 
-<caption>
+<caption style="font-size: initial !important;">
 
 Significant (P.adj \< 0.05) pairwise comparisons
 
@@ -997,9 +993,9 @@ GF.1 - GF.2
 
 #### Second Epoch Only
 
-<table class="table table-striped" style="margin-left: auto; margin-right: auto;">
+<table class="table table-striped" style="font-size: 10px; margin-left: auto; margin-right: auto;">
 
-<caption>
+<caption style="font-size: initial !important;">
 
 LPR Analysis Step 1: calculate h (Differential Entropy) by Treatment,
 Plate, and Timepoint
@@ -1578,9 +1574,9 @@ t4
 
 </table>
 
-<table class="table table-striped" style="margin-left: auto; margin-right: auto;">
+<table class="table table-striped" style="font-size: 10px; margin-left: auto; margin-right: auto;">
 
-<caption>
+<caption style="font-size: initial !important;">
 
 LPR Analysis Step 1: number of values
 
@@ -1660,9 +1656,9 @@ CV
 
 </table>
 
-<table class="table table-striped" style="margin-left: auto; margin-right: auto;">
+<table class="table table-striped" style="font-size: 10px; margin-left: auto; margin-right: auto;">
 
-<caption>
+<caption style="font-size: initial !important;">
 
 LPR Analysis Step 2: calculate Avg(h) (mean Differential Entropy) by
 Treatment and Timepoint for 2nd epoch
@@ -1959,7 +1955,7 @@ t65
 
 </table>
 
-<table class="table table-striped" style="margin-left: auto; margin-right: auto;">
+<table class="table table-striped" style="font-size: 10px; margin-left: auto; margin-right: auto;">
 
 <thead>
 
@@ -2035,9 +2031,9 @@ CV
 
 </table>
 
-<table class="table table-striped" style="margin-left: auto; margin-right: auto;">
+<table class="table table-striped" style="font-size: 10px; margin-left: auto; margin-right: auto;">
 
-<caption>
+<caption style="font-size: initial !important;">
 
 LPR Analysis Step 3: caluclate sum of Avg(h) \[h.sec\] by Treatment
 along 30-second increments
@@ -2334,7 +2330,7 @@ CV
 
 </table>
 
-<table class="table table-striped" style="margin-left: auto; margin-right: auto;">
+<table class="table table-striped" style="font-size: 10px; margin-left: auto; margin-right: auto;">
 
 <thead>
 
@@ -2410,13 +2406,20 @@ CV
 
 </table>
 
-![LPR results from epoch 2 by Treatment. Yellow line indicates light
-cycle (vs dark
-cycle)](gf-cvz-cv-wChorions-wSeals-8day_files/figure-gfm/lpr-ep2-by-treat-plot-1.png)
+![](gf-cvz-cv-wChorions-wSeals-8day_files/figure-gfm/lpr-ep2-by-treat-plot1-1.png)<!-- -->
 
-<table class="table table-striped table-condensed" style="width: auto !important; margin-left: auto; margin-right: auto;">
+![](gf-cvz-cv-wChorions-wSeals-8day_files/figure-gfm/lpr-ep2-by-treat-plot2-1.png)<!-- -->
 
-<caption>
+I am unsure why there’s the dip in DE for the Fig. 4 but not for Fig. 5.
+The math should be the same, the difference is that for Fig. 4, the mean
+and then sum of DE is calculated prior to plotting, whereas in Fig. 5 I
+let `ggplot` do the math for me with `stat_summary`. I’ll look into this
+discrepancy. (Also see below in Figs. 7 and 8, the dip at the end is not
+there either.)
+
+<table class="table table-striped table-condensed" style="font-size: 10px; width: auto !important; margin-left: auto; margin-right: auto;">
+
+<caption style="font-size: initial !important;">
 
 Comparing GF and CVZ to CV (Kolmogorov-Smirnov Tests)
 
@@ -2774,9 +2777,9 @@ NA
 
 </table>
 
-<table class="table table-striped table-condensed" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<table class="table table-striped table-condensed" style="font-size: 10px; width: auto !important; margin-left: auto; margin-right: auto;">
 
-<caption>
+<caption style="font-size: initial !important;">
 
 Comparing GF and CVZ to CV (Kolmogorov-Smirnov Tests)
 
@@ -3042,17 +3045,18 @@ NA
 
 </table>
 
+![](gf-cvz-cv-wChorions-wSeals-8day_files/figure-gfm/lpr-ep2-by-plate-plot1-1.png)<!-- -->
+
+![](gf-cvz-cv-wChorions-wSeals-8day_files/figure-gfm/lpr-ep2-by-plate-plot2-1.png)<!-- -->
+
 #### All\* Epochs
 
 \* 2nd thru 4th. The first is dropped in the script given to my by Lisa.
-![Lines indicate treatment means, shading indicates the bootstrapped 95%
-CI for each mean. Yellow segments at bottom indicate light intervals (vs
-dark
-intervals).](gf-cvz-cv-wChorions-wSeals-8day_files/figure-gfm/lpr-all-eps-plot-1.png)
+![](gf-cvz-cv-wChorions-wSeals-8day_files/figure-gfm/lpr-all-eps-plot-1.png)<!-- -->
 
-<table class="table table-striped table-condensed" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<table class="table table-striped table-condensed" style="font-size: 10px; width: auto !important; margin-left: auto; margin-right: auto;">
 
-<caption>
+<caption style="font-size: initial !important;">
 
 Comparing GF and CVZ to CV (Kolmogorov-Smirnov Tests)
 
@@ -3452,9 +3456,9 @@ NA
 
 </table>
 
-<table class="table table-striped table-condensed" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<table class="table table-striped table-condensed" style="font-size: 10px; width: auto !important; margin-left: auto; margin-right: auto;">
 
-<caption>
+<caption style="font-size: initial !important;">
 
 Comparing GF to CVZ (Kolmogorov-Smirnov Tests)
 
@@ -3750,9 +3754,6 @@ YES
 
 </table>
 
-![Lines indicate plate means, shading indicates the bootstrapped 95% CI
-for each mean. Yellow segments at bottom indicate light intervals (vs
-dark
-intervals).](gf-cvz-cv-wChorions-wSeals-8day_files/figure-gfm/lpr-all-eps-plot-by-plate-1.png)
+![](gf-cvz-cv-wChorions-wSeals-8day_files/figure-gfm/lpr-all-eps-plot-by-plate-1.png)<!-- -->
 
 ### Day 5 - LSR
