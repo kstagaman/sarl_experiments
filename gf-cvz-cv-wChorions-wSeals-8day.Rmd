@@ -240,7 +240,7 @@ lpr.data <- lpr.data[plate.treat, on = "plate==Plate_ID", nomatch = 0]
 nSubjects.lpr <- lpr.data[, .(N = .N), by = c("Treatment", "plate")]
 # write.table(nSubjects.lpr, file = "lpr_nSubjects_tbl.csv", sep = ",", quote = F, row.names = F)
 
-behav5d <- lpr.data
+behav5d <- copy(lpr.data)
 behav5d$conc <- as.numeric(as.character(behav5d$conc))
 ### lets analyze only the 2nd epoch
 l1 <- paste0("t", seq(61,89))
@@ -1005,11 +1005,148 @@ plot_grid(
 
 ### Day 5 - LSR
 
-```{r lsr-by-treatment-plot, fig.cap=""}
+```{r lsr-by-treatment-plot, eval=F}
 lsr.pattern <- "behavior_5d_FOR_GUI_LSR"
 lsr.path <- file.path(dirs, "GUI files", "RemovedAffected")
 lsr.files <- list.files(path = lsr.path, pattern = lsr.pattern, full.names = T)
 lsr.data <- do.call("rbind", lapply(lsr.files, read.csv)) %>% as.data.table()
 lsr.data <- lsr.data[complete.cases(lsr.data)]
 lsr.data <- lsr.data[plate.treat, on = "plate==Plate_ID", nomatch = 0]
+
+SR <- paste0("t", 0:9)
+behav5d <- copy(lsr.data)
+sub_chemids <- unique(lsr.data$chemical.id)
+control_conc <- 0
+tab <- data.frame()
+for (vals in sub_chemids) {
+  headers <- c(
+    "chemical.id", "conc", "AUC.Pval", "AUC", "PercDiff", "Peak.no", "Peak_dist", "Peak.pval", "PeakDiff"
+    )
+  # dat <- behav5d %>% filter(chemical.id == vals) %>% select(chemical.id, conc, plate, well,SR)
+  dat <- behav5d[chemical.id == vals, .SD, .SDcols = c("chemical.id", "conc", "plate", "well", SR)]
+  dat[, conc := as.numeric(conc)]
+  cc <- unique(dat$conc)
+  # c1 <- dat[which(dat$conc == control_conc),]
+  c1 <- dat[conc == control_conc]
+  c1 <- c1[complete.cases(c1)]
+  # c1_aucs <- apply(c1[,match(c(SR), names(c1))], 2, trapz)
+  c1_aucs <- c1[
+    , 
+    lapply(.SD, function(col) caTools::trapz(x = 1:nrow(c1), y = col)), 
+    .SDcols = SR
+    ] %>% unlist()
+  c_mean <- c1[, lapply(.SD, mean), .SDcols = SR] %>% unlist()
+  
+  SR.peak <- names(grep(max(c_mean), c_mean, value = T)) ## what time point is the peak
+  c1_peak <- get(SR.peak, c1)
+  some <- matrix(nrow = length(cc), ncol = length(headers), dimnames = list(cc, headers))
+  # c <- cc[1]
+  for (c in cc) {
+    t <- dat[conc == c]
+    t <- t[complete.cases(t)]
+    
+    if (nrow(t) > 1) {
+      t_aucs <- t[
+        , 
+        lapply(.SD, function(col) caTools::trapz(x = 1:nrow(t), y = col)), 
+        .SDcols = SR
+        ] %>% unlist()
+      t_peak <- get(SR.peak, t)
+      
+      ## setup things
+      some[, 1] <- vals
+      some[paste(c), 2] <- paste(c)
+      
+      ## AUC
+      SR.auc <- ks.test(c1_aucs, t_aucs, alternative = "two.sided") # Kolmogorov-Smirnov Goodness-of-Fit
+      some[paste(c), "AUC.Pval"] <- round(SR.auc$p.value, 3)
+      some[paste(c), "AUC"] <- round(mean(t_aucs), 3)
+      some[paste(c), "PercDiff"] <- round((mean(t_aucs) - mean(c1_aucs)) / (mean(c1_aucs)) * 100, 3)
+      
+      ## looking at the peak - 3 secs in
+      SR.Peak.compare <- ks.test(c1_peak, t_peak, alternative = "two.sided")
+      some[paste(c), "Peak.no"] <- as.numeric(sapply(strsplit(SR.peak, "t"), "[[", 2)) + 1
+      some[paste(c), "Peak_dist"] <- round(mean(t_peak), 3)
+      some[paste(c), "Peak.pval"] <- round(SR.Peak.compare$p.value, 3)
+      some[paste(c), "PeakDiff"] <- round((mean(t_peak) - mean(c1_peak)) / (mean(c1_peak)) * 100, 3)
+    } else {
+      some[, 1] <- vals
+      some[paste(c), 2] <- paste(c)
+      some[paste(c), "Peak.no"] <- as.numeric(sapply(strsplit(SR.peak, "t"), "[[", 2))
+      some[paste(c), c("AUC.Pval", "AUC", "PercDiff", "Peak_dist", "Peak.pval", "PeakDiff")] <- NA
+    }
+  } ## for each conc
+  tab <- rbind(tab, some)
+}## for each chemical ID
+
+stats_table_LSR <- tab
+stats_table_LSR[, c("conc", "AUC", "AUC.Pval", "PercDiff")] <- apply(stats_table_LSR[, c("conc", "AUC", "AUC.Pval", "PercDiff")], 2, function(x) as.numeric(as.character(x)))
+stats_table_LSR[which(stats_table_LSR$AUC.Pval <= 0.01 & stats_table_LSR$ss_more_70perc == TRUE), "significance p<0.01"] <- "YES"
+stats_table_LSR[which(stats_table_LSR$AUC.Pval <= 0.01 & stats_table_LSR$ss_more_70perc == TRUE & stats_table_LSR$PercDiff > 50), "significance p<0.01 and 50% cutoff"] <- "YES"
+stats_table_LSR[which(stats_table_LSR$AUC.Pval <= 0.01 & stats_table_LSR$ss_more_70perc == TRUE & stats_table_LSR$PercDiff < -50), "significance p<0.01 and 50% cutoff"] <- "YES"
+stats_table_LSR[which(stats_table_LSR$AUC.Pval <= 0.01 & stats_table_LSR$ss_more_70perc == TRUE & stats_table_LSR$PercDiff > 50), "activity"] <- "HYPER"
+stats_table_LSR[which(stats_table_LSR$PAUC.Pvalval <= 0.01 & stats_table_LSR$ss_more_70perc == TRUE & stats_table_LSR$PercDiff < -50), "activity"] <- "HYPO"
+
+## add in conc units:
+stats_table_LSR <- merge(stats_table_LSR, conc_table[c(1, 3, 5, 6)])
+stats_table_LSR <- stats_table_LSR[c(
+  "chemical.id", "conc", "AUC", "PercDiff",
+  "AUC.Pval", "significance p<0.01", "significance p<0.01 and 50% cutoff", "activity"
+)]
+
+## add comments why there is NA
+stats_table_LSR[is.na(stats_table_LSR$AUC), "Comments"] <- "Not enough animals for stats test"
+low <- sub_chemids[1]
+stats_table_LSR$conc <- as.factor(stats_table_LSR$conc)
+ggplot(
+  stats_table_LSR[which(stats_table_LSR$chemical.id == low), ],
+  aes(conc, AUC, group = conc)
+) +
+  geom_bar(aes(fill = conc), position = "dodge", stat = "identity") +
+  theme_bw() +
+  # geom_text(aes(label = count, colour = conc), position = position_dodge(width = 0.9), vjust = -0.25) +
+  labs(x = "concentration", y = "Average Area Under the Curve") +
+  theme(plot.title = element_text(color = "#666666", face = "bold", size = 18, hjust = 1)) +
+  # ggtitle(paste0(low, ":", chem.key$chemical.name[chem.key$chemical.id == low])) +
+  scale_color_manual(values = c(
+    "black", "#CC6666", "#9999CC", "cornflowerblue",
+    "gray", "purple", "red", "blue", "yellow", "red", "royalblue4",
+    "darkmagenta", "darkolivegreen", "brown2", "darkcyan",
+    "darkblue", "darkslateblue", "darkseagreen1",
+    "darkolivegreen", "darkorchid", "forestgreen", "darkred",
+    "deeppink", "darkslategray3", "lightcyan3", "hotpink",
+    "khaki", "pink3", "plum", "seagreen1", "tomato", "steelblue",
+    "tan", "slateblue3", "violetred4"
+  )) +
+  scale_fill_manual(values = c(
+    "black", "#CC6666", "#9999CC", "cornflowerblue",
+    "gray", "purple", "red", "blue", "yellow", "red", "royalblue4",
+    "darkmagenta", "darkolivegreen", "brown2", "darkcyan",
+    "darkblue", "darkslateblue", "darkseagreen1",
+    "darkolivegreen", "darkorchid", "forestgreen", "darkred",
+    "deeppink", "darkslategray3", "lightcyan3", "hotpink",
+    "khaki", "pink3", "plum", "seagreen1", "tomato", "steelblue",
+    "tan", "slateblue3", "violetred4"
+  )) +
+  theme(legend.position = "none")
+```
+
+
+```{r lsr-by-treatment-plot-myVersion}
+lsr.pattern <- "behavior_5d_FOR_GUI_LSR"
+lsr.path <- file.path(dirs, "GUI files", "RemovedAffected")
+lsr.files <- list.files(path = lsr.path, pattern = lsr.pattern, full.names = T)
+lsr.data <- do.call("rbind", lapply(lsr.files, read.csv)) %>% as.data.table()
+lsr.data <- lsr.data[complete.cases(lsr.data)]
+lsr.data <- lsr.data[plate.treat, on = "plate==Plate_ID", nomatch = 0]
+
+SR <- paste0("t", 0:9)
+dat <- lsr.data[, .SD, .SDcols = c("Treatment", "plate", "well", SR)]
+dat.melt <- melt(dat, id.vars = c("Treatment", "plate", "well"))
+dat.melt[, variable := as.numeric(gsub("t", "", variable))]
+aucs <- dat.melt[, .(AUC = trapz(variable, value)), by = c("Treatment", "plate", "well")]
+ggplot(aucs, aes(x = Treatment, y = AUC)) + 
+  geom_quasirandom(aes(color = Treatment)) +
+  stat_summary(fun.data = "mean_cl_boot", geom = "errorbar", width = 0.5, color = "gray30") +
+  three_colors
 ```
