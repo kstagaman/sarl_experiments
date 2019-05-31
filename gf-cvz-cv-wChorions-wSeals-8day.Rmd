@@ -1145,8 +1145,20 @@ dat <- lsr.data[, .SD, .SDcols = c("Treatment", "plate", "well", SR)]
 dat.melt <- melt(dat, id.vars = c("Treatment", "plate", "well"))
 dat.melt[, variable := as.numeric(gsub("t", "", variable))]
 aucs <- dat.melt[, .(AUC = trapz(variable, value)), by = c("Treatment", "plate", "well")]
+cap <- create.caption(
+  "A plot of the AUCs (per well, not per timepoint) for each of the three Treatments for the LSR analysis. The statistics as currently conducted report no significant differences, but they are based off of calculating the AUCs differently (per timepoint, not per well)"
+)
 ggplot(aucs, aes(x = Treatment, y = AUC)) + 
   geom_quasirandom(aes(color = Treatment)) +
-  stat_summary(fun.data = "mean_cl_boot", geom = "errorbar", width = 0.5, color = "gray30") +
-  three_colors
+  stat_summary(
+    fun.data = "mean_cl_boot", 
+    geom = "errorbar", 
+    width = 0.5, 
+    color = "gray30",
+    size = 1
+    ) +
+  three_colors + 
+  labs(caption = cap)
 ```
+
+This is not actually how the LSR data is reported according to the current SARL workflow, but I think this makes more sense, and we can talk about why.
