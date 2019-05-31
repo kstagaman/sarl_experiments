@@ -3757,3 +3757,9 @@ YES
 ![](gf-cvz-cv-wChorions-wSeals-8day_files/figure-gfm/lpr-all-eps-plot-by-plate-1.png)<!-- -->
 
 ### Day 5 - LSR
+
+![](gf-cvz-cv-wChorions-wSeals-8day_files/figure-gfm/lsr-by-treatment-plot-myVersion-1.png)<!-- -->
+
+This is not actually how the LSR data is reported according to the
+current SARL workflow, but I think this makes more sense, and we can
+talk about why.
